@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "KKSDENTAL Lab",
+    "slug": "kksdental-lab",
+    "version": "1.0.0",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kksdental.lab"
+    },
+    "android": {
+      "package": "com.kksdental.lab",
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0A0A"
+      }
+    }
+  }
+}
