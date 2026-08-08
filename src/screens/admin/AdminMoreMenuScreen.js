@@ -5,6 +5,9 @@ import { colors, spacing } from "../../theme/colors";
 const ITEMS = [
   { label: "Invoice", screen: "Invoice" },
   { label: "Manage Clinics", screen: "ManageClinics" },
+  { label: "Services & Pricing", screen: "Catalog" },
+  { label: "Gallery", screen: "Gallery" },
+  { label: "Blog", screen: "Blog" },
   { label: "Reports", screen: "Reports" },
   { label: "Account Settings", screen: "AdminAccountSetting" },
 ];

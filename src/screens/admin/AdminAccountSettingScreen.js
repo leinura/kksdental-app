@@ -5,7 +5,13 @@ import { colors, spacing } from "../../theme/colors";
 
 const MENU_ITEMS = ["Edit Profile", "Authentication", "Security"];
 
-export default function AdminAccountSettingScreen() {
+const ROUTES = {
+  "Edit Profile": "EditProfile",
+  Authentication: "ChangePassword",
+  Security: "Security",
+};
+
+export default function AdminAccountSettingScreen({ navigation }) {
   const { logout, user } = useAuth();
 
   function confirmLogout() {
@@ -15,12 +21,17 @@ export default function AdminAccountSettingScreen() {
     ]);
   }
 
+  function handleMenuPress(item) {
+    const route = ROUTES[item];
+    if (route) navigation.navigate(route);
+  }
+
   return (
     <View style={styles.container}>
       {user?.name && <Text style={styles.name}>{user.name}</Text>}
 
       {MENU_ITEMS.map((item) => (
-        <TouchableOpacity key={item} style={styles.row}>
+        <TouchableOpacity key={item} style={styles.row} onPress={() => handleMenuPress(item)}>
           <Text style={styles.rowText}>{item}</Text>
         </TouchableOpacity>
       ))}

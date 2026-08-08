@@ -5,7 +5,9 @@
     "version": "1.0.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.kksdental.lab"
@@ -15,6 +17,12 @@
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0A"
       }
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "744972df-fe34-428b-8ee4-413c2dfcfef4"
+      }
+    },
+    "owner": "nganba1"
   }
 }

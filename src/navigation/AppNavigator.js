@@ -2,7 +2,7 @@ import React from "react";
 import { View, ActivityIndicator } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
-import LoginScreen from "../screens/LoginScreen";
+import PublicStack from "./PublicStack";
 import ClientTabNavigator from "./ClientTabNavigator";
 import AdminTabNavigator from "./AdminTabNavigator";
 import { colors } from "../theme/colors";
@@ -21,7 +21,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       {!user ? (
-        <LoginScreen />
+        <PublicStack />
       ) : user.role === "DENTIST" ? (
         <ClientTabNavigator />
       ) : (

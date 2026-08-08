@@ -5,7 +5,13 @@ import { colors, spacing } from "../../theme/colors";
 
 const MENU_ITEMS = ["Edit Profile", "Security & Authentication", "Privacy & Data Control", "Change Password"];
 
-export default function AccountSettingScreen() {
+const ROUTES = {
+  "Edit Profile": "EditProfile",
+  "Security & Authentication": "Security",
+  "Change Password": "ChangePassword",
+};
+
+export default function AccountSettingScreen({ navigation }) {
   const { logout, user } = useAuth();
 
   function confirmLogout() {
@@ -15,12 +21,18 @@ export default function AccountSettingScreen() {
     ]);
   }
 
+  function handleMenuPress(item) {
+    const route = ROUTES[item];
+    if (route) navigation.navigate(route);
+    // "Privacy & Data Control" isn't wired up yet - tapping it does nothing.
+  }
+
   return (
     <View style={styles.container}>
       {user?.clinic && <Text style={styles.clinicName}>{user.clinic.name}</Text>}
 
       {MENU_ITEMS.map((item) => (
-        <TouchableOpacity key={item} style={styles.row}>
+        <TouchableOpacity key={item} style={styles.row} onPress={() => handleMenuPress(item)}>
           <Text style={styles.rowText}>{item}</Text>
         </TouchableOpacity>
       ))}
