@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  RefreshControl,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import apiClient from "../../api/client";
@@ -23,25 +24,30 @@ const TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - GAP * (COLUMNS - 1)) / COLUMN
 export default function GalleryScreen() {
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [pendingImage, setPendingImage] = useState(null); // { base64, uri }
   const [caption, setCaption] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const loadPhotos = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await apiClient.get("/gallery");
       setPhotos(res.data);
     } catch (err) {
       Alert.alert("Couldn't load gallery", "Check your connection and try again.");
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadPhotos();
+    setLoading(true);
+    loadPhotos().finally(() => setLoading(false));
   }, [loadPhotos]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadPhotos();
+    setRefreshing(false);
+  }
 
   async function pickImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -138,6 +144,7 @@ export default function GalleryScreen() {
           numColumns={COLUMNS}
           contentContainerStyle={styles.grid}
           columnWrapperStyle={{ gap: GAP }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No photos yet - tap "Add Photo" to upload the first one.</Text>}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.tile} onLongPress={() => handleDelete(item)}>

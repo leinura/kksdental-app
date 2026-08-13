@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import apiClient from "../../api/client";
 import { colors, spacing, radius } from "../../theme/colors";
@@ -17,13 +18,13 @@ const TABS = ["Services", "Warranties", "Shades", "Pricing"];
 export default function CatalogScreen() {
   const [activeTab, setActiveTab] = useState("Services");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [services, setServices] = useState([]);
   const [warranties, setWarranties] = useState([]);
   const [toothShades, setToothShades] = useState([]);
   const [priceList, setPriceList] = useState([]);
 
   const loadAll = useCallback(async () => {
-    setLoading(true);
     try {
       const [s, w, t, p] = await Promise.all([
         apiClient.get("/catalog/services"),
@@ -37,14 +38,19 @@ export default function CatalogScreen() {
       setPriceList(p.data);
     } catch (err) {
       Alert.alert("Couldn't load catalog", "Check your connection and try again.");
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadAll();
+    setLoading(true);
+    loadAll().finally(() => setLoading(false));
   }, [loadAll]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadAll();
+    setRefreshing(false);
+  }
 
   return (
     <View style={styles.container}>
@@ -64,11 +70,24 @@ export default function CatalogScreen() {
         <ActivityIndicator color={colors.dark} size="large" style={{ marginTop: spacing.xl }} />
       ) : (
         <>
-          {activeTab === "Services" && <ServicesTab services={services} onChange={loadAll} />}
-          {activeTab === "Warranties" && <WarrantiesTab warranties={warranties} onChange={loadAll} />}
-          {activeTab === "Shades" && <ShadesTab shades={toothShades} onChange={loadAll} />}
+          {activeTab === "Services" && (
+            <ServicesTab services={services} onChange={loadAll} refreshing={refreshing} onRefresh={handleRefresh} />
+          )}
+          {activeTab === "Warranties" && (
+            <WarrantiesTab warranties={warranties} onChange={loadAll} refreshing={refreshing} onRefresh={handleRefresh} />
+          )}
+          {activeTab === "Shades" && (
+            <ShadesTab shades={toothShades} onChange={loadAll} refreshing={refreshing} onRefresh={handleRefresh} />
+          )}
           {activeTab === "Pricing" && (
-            <PricingTab services={services} warranties={warranties} priceList={priceList} onChange={loadAll} />
+            <PricingTab
+              services={services}
+              warranties={warranties}
+              priceList={priceList}
+              onChange={loadAll}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+            />
           )}
         </>
       )}
@@ -77,7 +96,7 @@ export default function CatalogScreen() {
 }
 
 // --- Services + nested Service Types ---
-function ServicesTab({ services, onChange }) {
+function ServicesTab({ services, onChange, refreshing, onRefresh }) {
   const [newName, setNewName] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [newTypeName, setNewTypeName] = useState("");
@@ -145,7 +164,7 @@ function ServicesTab({ services, onChange }) {
   }
 
   return (
-    <ScrollView style={styles.tabContent}>
+    <ScrollView style={styles.tabContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       <View style={styles.addRow}>
         <TextInput
           style={[styles.input, { flex: 1 }]}
@@ -210,7 +229,7 @@ function ServicesTab({ services, onChange }) {
 }
 
 // --- Warranties ---
-function WarrantiesTab({ warranties, onChange }) {
+function WarrantiesTab({ warranties, onChange, refreshing, onRefresh }) {
   const [newLabel, setNewLabel] = useState("");
 
   async function add() {
@@ -243,7 +262,7 @@ function WarrantiesTab({ warranties, onChange }) {
   }
 
   return (
-    <ScrollView style={styles.tabContent}>
+    <ScrollView style={styles.tabContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       <View style={styles.addRow}>
         <TextInput
           style={[styles.input, { flex: 1 }]}
@@ -270,7 +289,7 @@ function WarrantiesTab({ warranties, onChange }) {
 }
 
 // --- Tooth Shades ---
-function ShadesTab({ shades, onChange }) {
+function ShadesTab({ shades, onChange, refreshing, onRefresh }) {
   const [newCode, setNewCode] = useState("");
 
   async function add() {
@@ -303,7 +322,7 @@ function ShadesTab({ shades, onChange }) {
   }
 
   return (
-    <ScrollView style={styles.tabContent}>
+    <ScrollView style={styles.tabContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       <View style={styles.addRow}>
         <TextInput
           style={[styles.input, { flex: 1 }]}
@@ -333,7 +352,7 @@ function ShadesTab({ shades, onChange }) {
 }
 
 // --- Pricing ---
-function PricingTab({ services, warranties, priceList, onChange }) {
+function PricingTab({ services, warranties, priceList, onChange, refreshing, onRefresh }) {
   const [serviceId, setServiceId] = useState(null);
   const [serviceTypeId, setServiceTypeId] = useState(null);
   const [warrantyId, setWarrantyId] = useState(null);
@@ -387,7 +406,7 @@ function PricingTab({ services, warranties, priceList, onChange }) {
   }
 
   return (
-    <ScrollView style={styles.tabContent}>
+    <ScrollView style={styles.tabContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       <Text style={styles.sectionLabel}>Add / Update Price</Text>
 
       <Text style={styles.fieldLabel}>Service</Text>

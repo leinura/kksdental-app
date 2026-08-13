@@ -8,12 +8,17 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "splash": {
+      "backgroundColor": "#0A0A0A",
+      "resizeMode": "contain"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.kksdental.lab"
     },
     "android": {
       "package": "com.kksdental.lab",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0A"
       }

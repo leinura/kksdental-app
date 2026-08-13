@@ -9,6 +9,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import apiClient from "../../api/client";
@@ -17,6 +18,7 @@ import { colors, spacing, radius } from "../../theme/colors";
 export default function BlogScreen() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [title, setTitle] = useState("");
@@ -25,20 +27,24 @@ export default function BlogScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const loadPosts = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await apiClient.get("/blog");
       setPosts(res.data);
     } catch (err) {
       Alert.alert("Couldn't load posts", "Check your connection and try again.");
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadPosts();
+    setLoading(true);
+    loadPosts().finally(() => setLoading(false));
   }, [loadPosts]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadPosts();
+    setRefreshing(false);
+  }
 
   function resetForm() {
     setEditingId(null);
@@ -193,6 +199,7 @@ export default function BlogScreen() {
           data={posts}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No posts yet - tap "New Post" to write the first one.</Text>}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.postRow} onPress={() => openEditPost(item)} onLongPress={() => handleDelete(item)}>

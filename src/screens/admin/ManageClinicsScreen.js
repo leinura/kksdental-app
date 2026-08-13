@@ -8,6 +8,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import apiClient from "../../api/client";
 import { Field } from "../../components/FormControls";
@@ -26,25 +27,30 @@ const EMPTY_FORM = {
 export default function ManageClinicsScreen() {
   const [clinics, setClinics] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
 
   const loadClinics = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await apiClient.get("/clinics");
       setClinics(res.data);
     } catch (err) {
       Alert.alert("Couldn't load clinics", err.response?.data?.error || "Please try again.");
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadClinics();
+    setLoading(true);
+    loadClinics().finally(() => setLoading(false));
   }, [loadClinics]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadClinics();
+    setRefreshing(false);
+  }
 
   function updateField(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -173,6 +179,7 @@ export default function ManageClinicsScreen() {
           data={clinics}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           ListEmptyComponent={
             <Text style={styles.emptyText}>No clinics yet - tap "Add New Clinic" to create the first one.</Text>
           }

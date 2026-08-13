@@ -1,18 +1,32 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from "react-native";
 import apiClient from "../../api/client";
 import { colors, spacing } from "../../theme/colors";
 
 export default function InvoiceScreen({ navigation }) {
   const [clinics, setClinics] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadClinics = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/clinics");
+      setClinics(res.data);
+    } catch (err) {
+      // keep existing list on a transient failure
+    }
+  }, []);
 
   useEffect(() => {
-    apiClient
-      .get("/clinics")
-      .then((res) => setClinics(res.data))
-      .finally(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    loadClinics().finally(() => setLoading(false));
+  }, [loadClinics]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadClinics();
+    setRefreshing(false);
+  }
 
   if (loading) {
     return (
@@ -31,6 +45,7 @@ export default function InvoiceScreen({ navigation }) {
         data={clinics}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         ListEmptyComponent={<Text style={styles.emptyText}>No clinics yet.</Text>}
         renderItem={({ item }) => (
           <TouchableOpacity

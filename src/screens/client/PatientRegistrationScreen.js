@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import apiClient from "../../api/client";
 import { useCatalog } from "../../hooks/useCatalog";
@@ -15,8 +16,9 @@ import CaseDetailsFields from "../../components/CaseDetailsFields";
 import { Field, PillSelect } from "../../components/FormControls";
 import { colors, spacing, radius } from "../../theme/colors";
 
-export default function PatientRegistrationScreen() {
-  const { loading: loadingCatalog, services, warranties, toothShades, priceList } = useCatalog();
+export default function PatientRegistrationScreen({ navigation }) {
+  const { loading: loadingCatalog, services, warranties, toothShades, priceList, reload } = useCatalog();
+  const [refreshing, setRefreshing] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [gender, setGender] = useState("");
@@ -28,6 +30,12 @@ export default function PatientRegistrationScreen() {
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
+  }
 
   function resetForm() {
     setFullName("");
@@ -59,11 +67,20 @@ export default function PatientRegistrationScreen() {
         toothNumbers,
         quantity: quantityOverride,
       });
+      const prefill = { serviceId, serviceTypeId, warrantyId, toothShadeId, toothNumbers, quantityOverride };
       Alert.alert(
         "Patient Registered",
-        `${res.data.patient.fullName} (${res.data.patient.patientCode}) registered successfully. Case ${res.data.case.caseCode} created.`
+        `${res.data.patient.fullName} (${res.data.patient.patientCode}) registered successfully. Case ${res.data.case.caseCode} created.`,
+        [
+          {
+            text: "Continue to Billing",
+            onPress: () => {
+              navigation.navigate("Billing", { patient: res.data.patient, prefill });
+              resetForm();
+            },
+          },
+        ]
       );
-      resetForm();
     } catch (err) {
       Alert.alert("Registration failed", err.response?.data?.error || "Please try again.");
     } finally {
@@ -80,7 +97,11 @@ export default function PatientRegistrationScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+    >
       <Text style={styles.heading}>Register Patient</Text>
 
       <Field label="Patient's Full Name *">

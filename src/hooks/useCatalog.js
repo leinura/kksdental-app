@@ -10,11 +10,14 @@ export function useCatalog() {
   const [priceList, setPriceList] = useState([]);
 
   useEffect(() => {
-    load();
+    load(true);
   }, []);
 
-  async function load() {
-    setLoading(true);
+  // isInitial controls the big full-screen spinner - pull-to-refresh calls
+  // reload() (isInitial=false) so it updates data silently in the
+  // background instead of replacing the whole screen with a spinner.
+  async function load(isInitial = false) {
+    if (isInitial) setLoading(true);
     setError(null);
     try {
       const [servicesRes, warrantiesRes, shadesRes, priceRes] = await Promise.all([
@@ -30,9 +33,9 @@ export function useCatalog() {
     } catch (err) {
       setError("Couldn't load form options. Check your connection and try again.");
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   }
 
-  return { loading, error, services, warranties, toothShades, priceList, reload: load };
+  return { loading, error, services, warranties, toothShades, priceList, reload: () => load(false) };
 }

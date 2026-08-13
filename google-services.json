@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "954761514399",
+    "project_id": "kksdental-lab",
+    "storage_bucket": "kksdental-lab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:954761514399:android:b6d0a02d647baf0f2101aa",
+        "android_client_info": {
+          "package_name": "com.kksdental.lab"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDD-LMYp4ER165FdM4JOxWUgdyHb35tDX0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,14 +9,16 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import apiClient from "../../api/client";
 import { useCatalog } from "../../hooks/useCatalog";
 import CaseDetailsFields from "../../components/CaseDetailsFields";
 import { colors, spacing, radius } from "../../theme/colors";
 
-export default function BillingScreen() {
-  const { loading: loadingCatalog, services, warranties, toothShades, priceList } = useCatalog();
+export default function BillingScreen({ navigation, route }) {
+  const { loading: loadingCatalog, services, warranties, toothShades, priceList, reload } = useCatalog();
+  const [refreshing, setRefreshing] = useState(false);
 
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -30,6 +32,34 @@ export default function BillingScreen() {
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
+  }
+
+  // Coming from "Continue to Billing" after registering a new patient -
+  // skip straight to the order form, pre-filled with whatever they just
+  // selected during registration (in case this is a related second order).
+  useEffect(() => {
+    if (route.params?.patient) {
+      const { patient, prefill } = route.params;
+      setSelectedPatient(patient);
+      setResults([]);
+      if (prefill) {
+        setServiceId(prefill.serviceId ?? null);
+        setServiceTypeId(prefill.serviceTypeId ?? null);
+        setWarrantyId(prefill.warrantyId ?? null);
+        setToothShadeId(prefill.toothShadeId ?? null);
+        setToothNumbers(prefill.toothNumbers ?? []);
+        setQuantityOverride(prefill.quantityOverride ?? null);
+      } else {
+        resetCaseFields();
+      }
+      navigation.setParams({ patient: undefined, prefill: undefined });
+    }
+  }, [route.params?.patient]);
 
   async function handleSearch() {
     if (!query.trim()) {
@@ -170,7 +200,11 @@ export default function BillingScreen() {
 
   // --- Step 2: place the order for the selected patient ---
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+    >
       <TouchableOpacity onPress={backToSearch}>
         <Text style={styles.backLink}>‹ Back to search</Text>
       </TouchableOpacity>

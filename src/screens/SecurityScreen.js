@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from "react-native";
 import apiClient from "../api/client";
 import { colors, spacing } from "../theme/colors";
 
@@ -7,13 +7,26 @@ const DEVICE_LABELS = { android: "Android", ios: "iOS", web: "Web" };
 
 export default function SecurityScreen() {
   const [activity, setActivity] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadActivity = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/auth/login-activity");
+      setActivity(res.data);
+    } catch (err) {
+      setActivity((prev) => prev ?? []);
+    }
+  }, []);
 
   useEffect(() => {
-    apiClient
-      .get("/auth/login-activity")
-      .then((res) => setActivity(res.data))
-      .catch(() => setActivity([]));
-  }, []);
+    loadActivity();
+  }, [loadActivity]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadActivity();
+    setRefreshing(false);
+  }
 
   if (activity === null) {
     return (
@@ -30,6 +43,7 @@ export default function SecurityScreen() {
         data={activity}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         ListEmptyComponent={<Text style={styles.emptyText}>No login activity recorded yet.</Text>}
         renderItem={({ item }) => (
           <View style={styles.row}>

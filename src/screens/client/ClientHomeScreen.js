@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
-import { View, Text, Image, FlatList, StyleSheet, Dimensions, ScrollView, ActivityIndicator } from "react-native";
+import React, { useCallback, useRef, useState } from "react";
+import { View, Text, Image, FlatList, StyleSheet, Dimensions, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { Video, ResizeMode } from "expo-av";
 import apiClient from "../../api/client";
 import { colors, spacing, radius } from "../../theme/colors";
@@ -16,13 +17,28 @@ const FALLBACK_SLIDES = [
 
 export default function ClientHomeScreen() {
   const [photos, setPhotos] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    apiClient
-      .get("/gallery")
-      .then((res) => setPhotos(res.data))
-      .catch(() => setPhotos([]));
+  const loadPhotos = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/gallery");
+      setPhotos(res.data);
+    } catch (err) {
+      setPhotos((prev) => prev ?? []);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadPhotos();
+    }, [loadPhotos])
+  );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadPhotos();
+    setRefreshing(false);
+  }
 
   const slides =
     photos && photos.length > 0
@@ -30,7 +46,10 @@ export default function ClientHomeScreen() {
       : FALLBACK_SLIDES;
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+    >
       {photos === null ? (
         <View style={[styles.slide, { alignItems: "center", justifyContent: "center" }]}>
           <ActivityIndicator color={colors.dark} />

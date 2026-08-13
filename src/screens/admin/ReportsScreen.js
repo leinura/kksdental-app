@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Share,
   Alert,
+  RefreshControl,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system";
@@ -18,6 +19,7 @@ import { colors, spacing, radius } from "../../theme/colors";
 
 export default function ReportsScreen({ navigation }) {
   const [allCases, setAllCases] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [clinicQuery, setClinicQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -35,6 +37,15 @@ export default function ReportsScreen({ navigation }) {
     } catch (err) {
       Alert.alert("Couldn't load report data", "Check your connection and try again.");
     }
+  }
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    const params = {};
+    if (fromDate) params.from = fromDate;
+    if (toDate) params.to = toDate;
+    await loadCases(params);
+    setRefreshing(false);
   }
 
   function applyClinicFilter(cases, query) {
@@ -135,6 +146,7 @@ export default function ReportsScreen({ navigation }) {
       style={styles.container}
       data={filtered}
       keyExtractor={(item) => item.id}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       ListHeaderComponent={
         <View>
           <Text style={styles.heading}>Financial Reports</Text>
