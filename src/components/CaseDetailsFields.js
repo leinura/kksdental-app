@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import ToothChart from "./ToothChart";
 import { Field, PillSelect } from "./FormControls";
@@ -28,7 +28,23 @@ export default function CaseDetailsFields({
 }) {
   const selectedService = services.find((s) => s.id === serviceId);
   const serviceTypes = selectedService ? selectedService.serviceTypes : [];
+  const selectedServiceType = serviceTypes.find((t) => t.id === serviceTypeId);
   const quantity = quantityOverride ?? (toothNumbers.length || 1);
+
+  // Warranty only matters for these specific Crown service types - everything
+  // else (other services, or Crown/METAL) skips the warranty question and is
+  // priced under the admin-configured "No Warranties" entry automatically.
+  const WARRANTY_ELIGIBLE_TYPES = ["zirconia", "pfm", "esthetic zirconia"];
+  const needsWarrantyChoice =
+    selectedService?.name?.trim().toLowerCase() === "crown" &&
+    WARRANTY_ELIGIBLE_TYPES.includes(selectedServiceType?.name?.trim().toLowerCase() || "");
+  const noWarrantyEntry = warranties.find((w) => w.label?.trim().toLowerCase() === "no warranties");
+
+  useEffect(() => {
+    if (!needsWarrantyChoice && noWarrantyEntry && warrantyId !== noWarrantyEntry.id) {
+      setWarrantyId(noWarrantyEntry.id);
+    }
+  }, [needsWarrantyChoice, noWarrantyEntry?.id]);
 
   const matchedPrice = priceList.find(
     (p) => p.serviceId === serviceId && p.serviceTypeId === serviceTypeId && p.warrantyId === warrantyId
@@ -59,13 +75,15 @@ export default function CaseDetailsFields({
         </Field>
       )}
 
-      <Field label="Warranty">
-        <PillSelect
-          options={warranties.map((w) => ({ label: w.label, value: w.id }))}
-          value={warrantyId}
-          onSelect={setWarrantyId}
-        />
-      </Field>
+      {needsWarrantyChoice && (
+        <Field label="Warranty">
+          <PillSelect
+            options={warranties.map((w) => ({ label: w.label, value: w.id }))}
+            value={warrantyId}
+            onSelect={setWarrantyId}
+          />
+        </Field>
+      )}
 
       <Field label="Tooth Shade">
         <PillSelect

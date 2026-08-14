@@ -8,7 +8,7 @@ export default function InvoiceDetailScreen({ route }) {
 
   return (
     <View style={styles.container}>
-      <ClinicLedgerView clinicId={clinicId} />
+      <ClinicLedgerView clinicId={clinicId} canManage />
     </View>
   );
 }

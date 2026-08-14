@@ -14,6 +14,7 @@ import {
 import apiClient from "../../api/client";
 import { useCatalog } from "../../hooks/useCatalog";
 import CaseDetailsFields from "../../components/CaseDetailsFields";
+import UpiQrModal from "../../components/UpiQrModal";
 import { colors, spacing, radius } from "../../theme/colors";
 
 export default function BillingScreen({ navigation, route }) {
@@ -32,6 +33,9 @@ export default function BillingScreen({ navigation, route }) {
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [upiModalVisible, setUpiModalVisible] = useState(false);
+  const [upiAmount, setUpiAmount] = useState(0);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -100,10 +104,13 @@ export default function BillingScreen({ navigation, route }) {
     setQuery("");
   }
 
-  async function submitOrder(payNow, paymentMethod) {
+  // Every order starts unpaid regardless of how the clinic intends to pay -
+  // Cash and UPI both require the lab to confirm receipt afterward. Returns
+  // the created case (or null on failure) so callers can react accordingly.
+  async function submitOrder() {
     if (!serviceId || !serviceTypeId || !warrantyId) {
       Alert.alert("Missing information", "Select a Service, Service Type, and Warranty first.");
-      return;
+      return null;
     }
     setSubmitting(true);
     try {
@@ -115,36 +122,55 @@ export default function BillingScreen({ navigation, route }) {
         toothShadeId,
         toothNumbers,
         quantity: quantityOverride,
-        payNow,
-        paymentMethod,
       });
-      Alert.alert(
-        "Order Placed",
-        `Case ${res.data.caseCode} created for ${selectedPatient.fullName}. Total: ₹${Number(res.data.totalPrice).toFixed(2)}${
-          payNow ? " (Paid)" : " (Payment pending)"
-        }`
-      );
       resetCaseFields();
+      return res.data;
     } catch (err) {
       Alert.alert("Order failed", err.response?.data?.error || "Please try again.");
+      return null;
     } finally {
       setSubmitting(false);
     }
   }
 
+  async function handleOrderNow() {
+    const order = await submitOrder();
+    if (order) {
+      Alert.alert(
+        "Order Placed",
+        `Case ${order.caseCode} created for ${selectedPatient.fullName}. Total: ₹${Number(order.totalPrice).toFixed(2)} (Payment pending)`
+      );
+    }
+  }
+
   function handleOrderAndPay() {
-    Alert.alert("How was this paid?", "Choose how to record payment for this order.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Pay Online",
-        onPress: () =>
-          Alert.alert(
-            "Online payments coming soon",
-            "Razorpay checkout isn't wired up yet - use \"Mark as Paid Manually\" for now, or \"Order Now\" to leave it unpaid."
-          ),
-      },
-      { text: "Mark as Paid Manually", onPress: () => submitOrder(true, "MANUAL") },
-    ]);
+    Alert.alert(
+      "How will this be paid?",
+      "The order will be marked paid once the lab confirms receipt - choosing a method here just shows the clinic how to pay.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Cash", onPress: handleCashOrder },
+        { text: "UPI (GPay)", onPress: handleUpiOrder },
+      ]
+    );
+  }
+
+  async function handleCashOrder() {
+    const order = await submitOrder();
+    if (order) {
+      Alert.alert(
+        "Order Placed",
+        `Case ${order.caseCode} created for ${selectedPatient.fullName}. Total: ₹${Number(order.totalPrice).toFixed(2)}\n\nCash payment noted - the lab will confirm once received.`
+      );
+    }
+  }
+
+  async function handleUpiOrder() {
+    const order = await submitOrder();
+    if (order) {
+      setUpiAmount(order.totalPrice);
+      setUpiModalVisible(true);
+    }
   }
 
   if (loadingCatalog) {
@@ -200,59 +226,63 @@ export default function BillingScreen({ navigation, route }) {
 
   // --- Step 2: place the order for the selected patient ---
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-    >
-      <TouchableOpacity onPress={backToSearch}>
-        <Text style={styles.backLink}>‹ Back to search</Text>
-      </TouchableOpacity>
-
-      <View style={styles.patientCard}>
-        <Text style={styles.patientName}>{selectedPatient.fullName}</Text>
-        <Text style={styles.patientMeta}>
-          {selectedPatient.patientCode} · {selectedPatient.gender} · {selectedPatient.age} yrs
-        </Text>
-      </View>
-
-      <CaseDetailsFields
-        services={services}
-        warranties={warranties}
-        toothShades={toothShades}
-        priceList={priceList}
-        serviceId={serviceId}
-        setServiceId={setServiceId}
-        serviceTypeId={serviceTypeId}
-        setServiceTypeId={setServiceTypeId}
-        warrantyId={warrantyId}
-        setWarrantyId={setWarrantyId}
-        toothShadeId={toothShadeId}
-        setToothShadeId={setToothShadeId}
-        toothNumbers={toothNumbers}
-        setToothNumbers={setToothNumbers}
-        quantityOverride={quantityOverride}
-        setQuantityOverride={setQuantityOverride}
-      />
-
-      <View style={styles.buttonRow}>
-        <TouchableOpacity
-          style={[styles.orderButton, styles.orderNowButton]}
-          onPress={() => submitOrder(false, null)}
-          disabled={submitting}
-        >
-          <Text style={styles.orderButtonText}>Order Now</Text>
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+      >
+        <TouchableOpacity onPress={backToSearch}>
+          <Text style={styles.backLink}>‹ Back to search</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.orderButton, styles.orderPayButton]}
-          onPress={handleOrderAndPay}
-          disabled={submitting}
-        >
-          <Text style={styles.orderButtonText}>Order & Pay</Text>
-        </TouchableOpacity>
-      </View>
-      {submitting && <ActivityIndicator color={colors.dark} style={{ marginTop: spacing.md }} />}
-    </ScrollView>
+
+        <View style={styles.patientCard}>
+          <Text style={styles.patientName}>{selectedPatient.fullName}</Text>
+          <Text style={styles.patientMeta}>
+            {selectedPatient.patientCode} · {selectedPatient.gender} · {selectedPatient.age} yrs
+          </Text>
+        </View>
+
+        <CaseDetailsFields
+          services={services}
+          warranties={warranties}
+          toothShades={toothShades}
+          priceList={priceList}
+          serviceId={serviceId}
+          setServiceId={setServiceId}
+          serviceTypeId={serviceTypeId}
+          setServiceTypeId={setServiceTypeId}
+          warrantyId={warrantyId}
+          setWarrantyId={setWarrantyId}
+          toothShadeId={toothShadeId}
+          setToothShadeId={setToothShadeId}
+          toothNumbers={toothNumbers}
+          setToothNumbers={setToothNumbers}
+          quantityOverride={quantityOverride}
+          setQuantityOverride={setQuantityOverride}
+        />
+
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.orderButton, styles.orderNowButton]}
+            onPress={handleOrderNow}
+            disabled={submitting}
+          >
+            <Text style={styles.orderButtonText}>Order Now</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.orderButton, styles.orderPayButton]}
+            onPress={handleOrderAndPay}
+            disabled={submitting}
+          >
+            <Text style={styles.orderButtonText}>Order & Pay</Text>
+          </TouchableOpacity>
+        </View>
+        {submitting && <ActivityIndicator color={colors.dark} style={{ marginTop: spacing.md }} />}
+      </ScrollView>
+
+      <UpiQrModal visible={upiModalVisible} amount={upiAmount} onClose={() => setUpiModalVisible(false)} />
+    </>
   );
 }
 

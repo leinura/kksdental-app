@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, RefreshControl } from "react-native";
 import apiClient from "../../api/client";
 import { STATUS_COLORS, STATUS_LABELS, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
@@ -9,23 +9,28 @@ const DELIVERY_STAGES = ["PENDING", "IN_PROGRESS", "COMPLETED"];
 export default function TrackOrdersScreen() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
 
   const loadOrders = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await apiClient.get("/cases");
       setOrders(res.data);
     } catch (err) {
       Alert.alert("Couldn't load orders", "Check your connection and try again.");
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadOrders();
+    setLoading(true);
+    loadOrders().finally(() => setLoading(false));
   }, [loadOrders]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadOrders();
+    setRefreshing(false);
+  }
 
   async function updateStatus(orderId, body) {
     setUpdatingId(orderId);
@@ -42,10 +47,11 @@ export default function TrackOrdersScreen() {
   function handleMarkPaid(order) {
     Alert.alert(
       "Mark as Paid",
-      `Confirm ${order.patient?.fullName}'s order (₹${Number(order.totalPrice).toFixed(2)}) has been paid?`,
+      `How did ${order.clinic?.name || order.patient?.fullName} pay for this order (₹${Number(order.totalPrice).toFixed(2)})?`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Confirm", onPress: () => updateStatus(order.id, { paymentStatus: "PAID" }) },
+        { text: "Cash", onPress: () => updateStatus(order.id, { paymentStatus: "PAID", paymentMethod: "CASH" }) },
+        { text: "UPI", onPress: () => updateStatus(order.id, { paymentStatus: "PAID", paymentMethod: "UPI" }) },
       ]
     );
   }
@@ -69,6 +75,7 @@ export default function TrackOrdersScreen() {
         data={orders}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         ListEmptyComponent={<Text style={styles.emptyText}>No orders yet.</Text>}
         renderItem={({ item }) => {
           const isUpdating = updatingId === item.id;
