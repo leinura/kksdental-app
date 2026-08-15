@@ -5,10 +5,12 @@
     "version": "1.0.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
     "assetBundlePatterns": [
       "**/*"
     ],
     "splash": {
+      "image": "./assets/splash-icon.png",
       "backgroundColor": "#0A0A0A",
       "resizeMode": "contain"
     },
@@ -20,6 +22,7 @@
       "package": "com.kksdental.lab",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
       }
     },

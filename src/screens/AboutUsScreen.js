@@ -26,10 +26,10 @@ export default function AboutUsScreen({ navigation }) {
             Our online platform lets partner clinics register patients, place orders, track case
             status in real time, and manage billing - all in one place.
           </Text>
-          <Text style={styles.placeholderNote}>
+          {/* <Text style={styles.placeholderNote}>
             (This is placeholder copy - replace it with your lab's real story, team, and
             credentials whenever you're ready.)
-          </Text>
+          </Text> */}
         </View>
       </View>
 
