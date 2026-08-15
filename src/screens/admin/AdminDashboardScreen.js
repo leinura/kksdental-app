@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import React, { useCallback, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../api/client";
 import { STATUS_COLORS, STATUS_LABELS } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
@@ -32,13 +33,28 @@ function lastSevenDays() {
 
 export default function AdminDashboardScreen() {
   const [cases, setCases] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    apiClient
-      .get("/cases")
-      .then((res) => setCases(res.data))
-      .catch(() => setCases([]));
+  const loadCases = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/cases");
+      setCases(res.data);
+    } catch (err) {
+      setCases((prev) => prev ?? []);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCases();
+    }, [loadCases])
+  );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadCases();
+    setRefreshing(false);
+  }
 
   if (cases === null) {
     return (
@@ -79,7 +95,11 @@ export default function AdminDashboardScreen() {
   });
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+    >
       <Text style={styles.pageHeading}>Dashboard</Text>
 
       {/* Weekly growth - stacked by service */}

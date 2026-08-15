@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -15,16 +15,22 @@ import apiClient from "../../api/client";
 import { useCatalog } from "../../hooks/useCatalog";
 import CaseDetailsFields from "../../components/CaseDetailsFields";
 import UpiQrModal from "../../components/UpiQrModal";
+import { PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
 
 export default function BillingScreen({ navigation, route }) {
   const { loading: loadingCatalog, services, warranties, toothShades, priceList, reload } = useCatalog();
   const [refreshing, setRefreshing] = useState(false);
 
+  const [allPatients, setAllPatients] = useState([]);
+  const [loadingPatients, setLoadingPatients] = useState(true);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [results, setResults] = useState([]);
+  const [searchResults, setSearchResults] = useState(null); // null = not searching, show allPatients instead
+
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [patientOrders, setPatientOrders] = useState(null);
+  const [loadingOrders, setLoadingOrders] = useState(false);
 
   const [serviceId, setServiceId] = useState(null);
   const [serviceTypeId, setServiceTypeId] = useState(null);
@@ -37,20 +43,32 @@ export default function BillingScreen({ navigation, route }) {
   const [upiModalVisible, setUpiModalVisible] = useState(false);
   const [upiAmount, setUpiAmount] = useState(0);
 
+  const loadPatients = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/patients");
+      setAllPatients(res.data);
+    } catch (err) {
+      // keep whatever was already loaded on a transient failure
+    }
+  }, []);
+
+  useEffect(() => {
+    setLoadingPatients(true);
+    loadPatients().finally(() => setLoadingPatients(false));
+  }, [loadPatients]);
+
   async function handleRefresh() {
     setRefreshing(true);
-    await reload();
+    await Promise.all([reload(), loadPatients()]);
     setRefreshing(false);
   }
 
-  // Coming from "Continue to Billing" after registering a new patient -
-  // skip straight to the order form, pre-filled with whatever they just
-  // selected during registration (in case this is a related second order).
+  // Coming from "Continue to Billing" style flows in the past - kept for
+  // compatibility in case anything still navigates here with a patient param.
   useEffect(() => {
     if (route.params?.patient) {
       const { patient, prefill } = route.params;
-      setSelectedPatient(patient);
-      setResults([]);
+      selectPatient(patient);
       if (prefill) {
         setServiceId(prefill.serviceId ?? null);
         setServiceTypeId(prefill.serviceTypeId ?? null);
@@ -58,8 +76,6 @@ export default function BillingScreen({ navigation, route }) {
         setToothShadeId(prefill.toothShadeId ?? null);
         setToothNumbers(prefill.toothNumbers ?? []);
         setQuantityOverride(prefill.quantityOverride ?? null);
-      } else {
-        resetCaseFields();
       }
       navigation.setParams({ patient: undefined, prefill: undefined });
     }
@@ -67,13 +83,13 @@ export default function BillingScreen({ navigation, route }) {
 
   async function handleSearch() {
     if (!query.trim()) {
-      Alert.alert("Enter a Patient ID or Patient Name", "The patient should be registered first.");
+      setSearchResults(null);
       return;
     }
     setSearching(true);
     try {
       const res = await apiClient.get("/patients/search", { params: { query } });
-      setResults(res.data);
+      setSearchResults(res.data);
       if (res.data.length === 0) {
         Alert.alert("No patients found", "Double check the ID or name, or register them first.");
       }
@@ -93,15 +109,29 @@ export default function BillingScreen({ navigation, route }) {
     setQuantityOverride(null);
   }
 
-  function selectPatient(patient) {
+  async function selectPatient(patient) {
     setSelectedPatient(patient);
-    setResults([]);
     resetCaseFields();
+    loadPatientOrders(patient.id);
+  }
+
+  async function loadPatientOrders(patientId) {
+    setLoadingOrders(true);
+    try {
+      const res = await apiClient.get(`/patients/${patientId}`);
+      setPatientOrders(res.data.cases || []);
+    } catch (err) {
+      setPatientOrders([]);
+    } finally {
+      setLoadingOrders(false);
+    }
   }
 
   function backToSearch() {
     setSelectedPatient(null);
+    setPatientOrders(null);
     setQuery("");
+    setSearchResults(null);
   }
 
   // Every order starts unpaid regardless of how the clinic intends to pay -
@@ -124,6 +154,7 @@ export default function BillingScreen({ navigation, route }) {
         quantity: quantityOverride,
       });
       resetCaseFields();
+      loadPatientOrders(selectedPatient.id);
       return res.data;
     } catch (err) {
       Alert.alert("Order failed", err.response?.data?.error || "Please try again.");
@@ -173,6 +204,27 @@ export default function BillingScreen({ navigation, route }) {
     }
   }
 
+  // Reminder for an ALREADY-placed order that's still unpaid - e.g. the
+  // first order created automatically during registration. Doesn't change
+  // anything server-side, purely shows the clinic how to pay.
+  function handleRemindPay(order) {
+    Alert.alert(`Pay for ${order.caseCode}`, `₹${Number(order.totalPrice).toFixed(2)} - how will this be paid?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Cash",
+        onPress: () =>
+          Alert.alert("Cash payment noted", "The lab will confirm once received."),
+      },
+      {
+        text: "UPI (GPay)",
+        onPress: () => {
+          setUpiAmount(order.totalPrice);
+          setUpiModalVisible(true);
+        },
+      },
+    ]);
+  }
+
   if (loadingCatalog) {
     return (
       <View style={styles.loadingContainer}>
@@ -181,23 +233,26 @@ export default function BillingScreen({ navigation, route }) {
     );
   }
 
-  // --- Step 1: search for the patient ---
+  // --- Step 1: browse or search for a patient ---
   if (!selectedPatient) {
+    const listData = searchResults !== null ? searchResults : allPatients;
     return (
       <View style={styles.container}>
         <View style={styles.content}>
           <Text style={styles.heading}>Billing</Text>
-          <Text style={styles.helperText}>
-            Enter Patient ID or Patient Name. The patient should be registered first.
-          </Text>
+          <Text style={styles.helperText}>Search, or pick a patient below.</Text>
 
           <View style={styles.searchRow}>
             <TextInput
               style={[styles.input, styles.searchInput]}
               value={query}
-              onChangeText={setQuery}
+              onChangeText={(v) => {
+                setQuery(v);
+                if (!v.trim()) setSearchResults(null);
+              }}
               placeholder="Patient ID or Patient Name"
               placeholderTextColor={colors.textMuted}
+              onSubmitEditing={handleSearch}
             />
           </View>
 
@@ -206,34 +261,44 @@ export default function BillingScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.resultsList}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.resultRow} onPress={() => selectPatient(item)}>
-              <View>
-                <Text style={styles.resultName}>{item.fullName}</Text>
-                <Text style={styles.resultMeta}>{item.patientCode}</Text>
-              </View>
-              <Text style={styles.resultArrow}>›</Text>
-            </TouchableOpacity>
-          )}
-        />
+        {loadingPatients ? (
+          <ActivityIndicator color={colors.dark} size="large" style={{ marginTop: spacing.xl }} />
+        ) : (
+          <FlatList
+            data={listData}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.resultsList}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>No patients registered yet.</Text>
+            }
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.resultRow} onPress={() => selectPatient(item)}>
+                <View>
+                  <Text style={styles.resultName}>{item.fullName}</Text>
+                  <Text style={styles.resultMeta}>{item.patientCode}</Text>
+                </View>
+                <Text style={styles.resultArrow}>›</Text>
+              </TouchableOpacity>
+            )}
+          />
+        )}
       </View>
     );
   }
 
-  // --- Step 2: place the order for the selected patient ---
+  // --- Step 2: this patient's order history + place a new order ---
   return (
     <>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => loadPatientOrders(selectedPatient.id)} />
+        }
       >
         <TouchableOpacity onPress={backToSearch}>
-          <Text style={styles.backLink}>‹ Back to search</Text>
+          <Text style={styles.backLink}>‹ Back to patients</Text>
         </TouchableOpacity>
 
         <View style={styles.patientCard}>
@@ -242,6 +307,30 @@ export default function BillingScreen({ navigation, route }) {
             {selectedPatient.patientCode} · {selectedPatient.gender} · {selectedPatient.age} yrs
           </Text>
         </View>
+
+        <Text style={styles.sectionHeading}>Order History</Text>
+        {loadingOrders ? (
+          <ActivityIndicator color={colors.dark} style={{ marginVertical: spacing.md }} />
+        ) : patientOrders && patientOrders.length > 0 ? (
+          patientOrders.map((order) => (
+            <View key={order.id} style={styles.orderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.orderCode}>{order.caseCode}</Text>
+                <Text style={styles.orderMeta}>₹{Number(order.totalPrice).toFixed(2)}</Text>
+              </View>
+              <PaymentTag paymentStatus={order.paymentStatus} />
+              {order.paymentStatus !== "PAID" && (
+                <TouchableOpacity style={styles.payButton} onPress={() => handleRemindPay(order)}>
+                  <Text style={styles.payButtonText}>Pay</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))
+        ) : (
+          <Text style={styles.emptyText}>No orders yet.</Text>
+        )}
+
+        <Text style={[styles.sectionHeading, { marginTop: spacing.xl }]}>Place a New Order</Text>
 
         <CaseDetailsFields
           services={services}
@@ -310,7 +399,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   searchButtonText: { color: colors.white, fontWeight: "700", fontSize: 15 },
-  resultsList: { paddingHorizontal: spacing.lg },
+  resultsList: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  emptyText: { textAlign: "center", color: colors.textMuted, marginTop: spacing.md },
   resultRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -331,6 +421,19 @@ const styles = StyleSheet.create({
   },
   patientName: { fontSize: 17, fontWeight: "700", color: colors.text },
   patientMeta: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  sectionHeading: { fontSize: 15, fontWeight: "700", color: colors.text, marginBottom: spacing.sm },
+  orderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  orderCode: { fontSize: 13, fontWeight: "700", color: colors.text },
+  orderMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  payButton: { backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  payButtonText: { color: colors.white, fontSize: 11, fontWeight: "700" },
   buttonRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   orderButton: { flex: 1, borderRadius: radius.pill, paddingVertical: 15, alignItems: "center" },
   orderNowButton: { backgroundColor: colors.dark },

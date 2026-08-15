@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from "react-native";
 import apiClient from "../../api/client";
 import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
@@ -10,28 +10,36 @@ function isToday(dateString) {
   return d.toDateString() === now.toDateString();
 }
 
-export default function OrdersScreen() {
+export default function OrdersScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [showSearch, setShowSearch] = useState(false);
 
   const loadOrders = useCallback(async (params = {}) => {
-    setLoading(true);
     try {
       const res = await apiClient.get("/cases", { params });
       setOrders(res.data);
     } catch (err) {
       // keep existing list on a transient failure
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadOrders();
+    setLoading(true);
+    loadOrders().finally(() => setLoading(false));
   }, [loadOrders]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    const params = {};
+    if (fromDate) params.from = fromDate;
+    if (toDate) params.to = toDate;
+    await loadOrders(params);
+    setRefreshing(false);
+  }
 
   function handleSearch() {
     const params = {};
@@ -102,9 +110,10 @@ export default function OrdersScreen() {
           data={orders}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No orders yet.</Text>}
           renderItem={({ item }) => (
-            <View style={styles.row}>
+            <TouchableOpacity style={styles.row} onPress={() => navigation.navigate("OrderDetail", { caseId: item.id })}>
               <View style={styles.rowTop}>
                 <Text style={styles.rowDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
                 <StatusBadge status={item.deliveryStatus} />
@@ -117,7 +126,7 @@ export default function OrdersScreen() {
                 <Text style={styles.rowCode}>{item.caseCode}</Text>
                 <PaymentTag paymentStatus={item.paymentStatus} />
               </View>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}

@@ -1,11 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import ClinicLedgerView from "../../components/ClinicLedgerView";
 import { colors, spacing } from "../../theme/colors";
 
-export default function InvoicesScreen() {
+export default function InvoicesScreen({ navigation }) {
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (user?.clinic?.name) {
+      navigation.setOptions({ title: `${user.clinic.name} Invoice` });
+    }
+  }, [user?.clinic?.name]);
 
   if (!user?.clinic?.id) {
     return (

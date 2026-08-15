@@ -13,6 +13,7 @@ import AccountSettingScreen from "../screens/client/AccountSettingScreen";
 import EditProfileScreen from "../screens/client/EditProfileScreen";
 import ChangePasswordScreen from "../screens/ChangePasswordScreen";
 import SecurityScreen from "../screens/SecurityScreen";
+import PrivacyControlScreen from "../screens/client/PrivacyControlScreen";
 import { colors } from "../theme/colors";
 
 const TAB_ICONS = {
@@ -30,11 +31,16 @@ function MoreStackNavigator() {
   return (
     <MoreStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.dark }, headerTintColor: colors.white }}>
       <MoreStack.Screen name="MoreMenu" component={MoreMenuScreen} options={{ title: "More" }} />
-      <MoreStack.Screen name="Invoices" component={InvoicesScreen} options={{ title: "Clinic-wise Invoices" }} />
+      <MoreStack.Screen name="Invoices" component={InvoicesScreen} options={{ title: "Invoice" }} />
       <MoreStack.Screen name="AccountSetting" component={AccountSettingScreen} options={{ title: "Account Setting" }} />
       <MoreStack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
       <MoreStack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: "Change Password" }} />
       <MoreStack.Screen name="Security" component={SecurityScreen} options={{ title: "Security & Authentication" }} />
+      <MoreStack.Screen
+        name="PrivacyControl"
+        component={PrivacyControlScreen}
+        options={{ title: "Privacy & Data Control" }}
+      />
     </MoreStack.Navigator>
   );
 }

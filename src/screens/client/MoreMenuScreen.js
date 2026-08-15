@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { colors, spacing } from "../../theme/colors";
 
 const ITEMS = [
-  { label: "Clinic-wise Invoices", screen: "Invoices" },
+  { label: "Invoice", screen: "Invoices" },
   { label: "Account Setting", screen: "AccountSetting" },
 ];
 

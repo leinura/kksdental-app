@@ -28,7 +28,9 @@ export default function ManageClinicsScreen() {
   const [clinics, setClinics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showForm, setShowForm] = useState(false);
+
+  const [mode, setMode] = useState("list"); // "list" | "add" | "edit"
+  const [editingClinic, setEditingClinic] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
 
@@ -56,6 +58,32 @@ export default function ManageClinicsScreen() {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
+  function openAddForm() {
+    setEditingClinic(null);
+    setForm(EMPTY_FORM);
+    setMode("add");
+  }
+
+  function openEditForm(clinic) {
+    setEditingClinic(clinic);
+    setForm({
+      name: clinic.name,
+      contactPerson: clinic.contactPerson,
+      email: clinic.email,
+      phone: clinic.phone,
+      address: clinic.address,
+      username: "",
+      password: "",
+    });
+    setMode("edit");
+  }
+
+  function backToList() {
+    setMode("list");
+    setEditingClinic(null);
+    setForm(EMPTY_FORM);
+  }
+
   async function handleCreate() {
     const { name, contactPerson, email, phone, address, username, password } = form;
     if (!name || !contactPerson || !email || !phone || !address || !username || !password) {
@@ -66,8 +94,7 @@ export default function ManageClinicsScreen() {
     try {
       await apiClient.post("/clinics", form);
       Alert.alert("Clinic Created", `${name}'s account is ready. Share the username/password with them directly.`);
-      setForm(EMPTY_FORM);
-      setShowForm(false);
+      backToList();
       loadClinics();
     } catch (err) {
       Alert.alert("Couldn't create clinic", err.response?.data?.error || "Please try again.");
@@ -76,11 +103,67 @@ export default function ManageClinicsScreen() {
     }
   }
 
-  if (showForm) {
+  async function handleSaveEdit() {
+    const { name, contactPerson, email, phone, address, username, password } = form;
+    if (!name || !contactPerson || !email || !phone || !address) {
+      Alert.alert("Missing information", "Name, contact person, email, phone, and address are required.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiClient.put(`/clinics/${editingClinic.id}`, {
+        name,
+        contactPerson,
+        email,
+        phone,
+        address,
+        username: username || undefined,
+        password: password || undefined,
+      });
+      Alert.alert("Saved", `${name}'s details have been updated.`);
+      backToList();
+      loadClinics();
+    } catch (err) {
+      Alert.alert("Couldn't save changes", err.response?.data?.error || "Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleToggleActive() {
+    const goingActive = !editingClinic.active;
+    const verb = goingActive ? "Reactivate" : "Deactivate";
+    const message = goingActive
+      ? `${editingClinic.name} will be able to log in again.`
+      : `${editingClinic.name} will be hidden from active use and won't be able to log in. Their order and payment history is kept - this can be undone anytime.`;
+
+    Alert.alert(`${verb} ${editingClinic.name}?`, message, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: verb,
+        style: goingActive ? "default" : "destructive",
+        onPress: async () => {
+          setSubmitting(true);
+          try {
+            await apiClient.put(`/clinics/${editingClinic.id}`, { active: goingActive });
+            backToList();
+            loadClinics();
+          } catch (err) {
+            Alert.alert("Couldn't update clinic", err.response?.data?.error || "Please try again.");
+          } finally {
+            setSubmitting(false);
+          }
+        },
+      },
+    ]);
+  }
+
+  if (mode === "add" || mode === "edit") {
+    const isEdit = mode === "edit";
     return (
       <View style={styles.container}>
         <View style={styles.formHeader}>
-          <TouchableOpacity onPress={() => setShowForm(false)}>
+          <TouchableOpacity onPress={backToList}>
             <Text style={styles.backLink}>‹ Back to list</Text>
           </TouchableOpacity>
         </View>
@@ -90,7 +173,14 @@ export default function ManageClinicsScreen() {
           contentContainerStyle={styles.formContent}
           renderItem={() => (
             <View>
-              <Text style={styles.heading}>Add New Clinic</Text>
+              <View style={styles.formTitleRow}>
+                <Text style={styles.heading}>{isEdit ? editingClinic.name : "Add New Clinic"}</Text>
+                {isEdit && !editingClinic.active && (
+                  <View style={styles.inactiveBadge}>
+                    <Text style={styles.inactiveBadgeText}>Inactive</Text>
+                  </View>
+                )}
+              </View>
 
               <Field label="Clinic Name *">
                 <TextInput style={styles.input} value={form.name} onChangeText={(v) => updateField("name", v)} />
@@ -129,30 +219,50 @@ export default function ManageClinicsScreen() {
               </Field>
 
               <Text style={styles.sectionLabel}>Login Credentials</Text>
-              <Field label="Username *">
+              <Field label={isEdit ? `Username (current: ${editingClinic.user?.username || "-"})` : "Username *"}>
                 <TextInput
                   style={styles.input}
                   value={form.username}
                   onChangeText={(v) => updateField("username", v)}
                   autoCapitalize="none"
+                  placeholder={isEdit ? "Leave blank to keep current" : ""}
+                  placeholderTextColor={colors.textMuted}
                 />
               </Field>
-              <Field label="Password *">
+              <Field label={isEdit ? "New Password" : "Password *"}>
                 <TextInput
                   style={styles.input}
                   value={form.password}
                   onChangeText={(v) => updateField("password", v)}
                   secureTextEntry
+                  placeholder={isEdit ? "Leave blank to keep current" : ""}
+                  placeholderTextColor={colors.textMuted}
                 />
               </Field>
 
-              <TouchableOpacity style={styles.submitButton} onPress={handleCreate} disabled={submitting}>
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={isEdit ? handleSaveEdit : handleCreate}
+                disabled={submitting}
+              >
                 {submitting ? (
                   <ActivityIndicator color={colors.white} />
                 ) : (
-                  <Text style={styles.submitText}>Create Clinic Account</Text>
+                  <Text style={styles.submitText}>{isEdit ? "Save Changes" : "Create Clinic Account"}</Text>
                 )}
               </TouchableOpacity>
+
+              {isEdit && (
+                <TouchableOpacity
+                  style={[styles.toggleButton, editingClinic.active ? styles.deactivateButton : styles.reactivateButton]}
+                  onPress={handleToggleActive}
+                  disabled={submitting}
+                >
+                  <Text style={editingClinic.active ? styles.deactivateText : styles.reactivateText}>
+                    {editingClinic.active ? "Deactivate Clinic" : "Reactivate Clinic"}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         />
@@ -167,7 +277,7 @@ export default function ManageClinicsScreen() {
           <Text style={styles.heading}>Clinic Management</Text>
           <Text style={styles.subheading}>{clinics.length} Total Clinics</Text>
         </View>
-        <TouchableOpacity style={styles.addButton} onPress={() => setShowForm(true)}>
+        <TouchableOpacity style={styles.addButton} onPress={openAddForm}>
           <Text style={styles.addButtonText}>+ Add New Clinic</Text>
         </TouchableOpacity>
       </View>
@@ -184,12 +294,22 @@ export default function ManageClinicsScreen() {
             <Text style={styles.emptyText}>No clinics yet - tap "Add New Clinic" to create the first one.</Text>
           }
           renderItem={({ item }) => (
-            <View style={styles.clinicRow}>
-              <Text style={styles.clinicName}>{item.name}</Text>
-              <Text style={styles.clinicMeta}>{item.contactPerson}</Text>
-              <Text style={styles.clinicMeta}>{item.email}</Text>
-              <Text style={styles.clinicMeta}>{item.phone}</Text>
-            </View>
+            <TouchableOpacity style={styles.clinicRow} onPress={() => openEditForm(item)}>
+              <View style={{ flex: 1 }}>
+                <View style={styles.clinicNameRow}>
+                  <Text style={styles.clinicName}>{item.name}</Text>
+                  {!item.active && (
+                    <View style={styles.inactiveBadge}>
+                      <Text style={styles.inactiveBadgeText}>Inactive</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.clinicMeta}>{item.contactPerson}</Text>
+                <Text style={styles.clinicMeta}>{item.email}</Text>
+                <Text style={styles.clinicMeta}>{item.phone}</Text>
+              </View>
+              <Text style={styles.rowArrow}>›</Text>
+            </TouchableOpacity>
           )}
         />
       )}
@@ -211,12 +331,23 @@ const styles = StyleSheet.create({
   addButtonText: { color: colors.white, fontWeight: "700", fontSize: 13 },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
   emptyText: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl },
-  clinicRow: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
+  clinicRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  clinicNameRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   clinicName: { fontSize: 16, fontWeight: "700", color: colors.text },
   clinicMeta: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  rowArrow: { fontSize: 20, color: colors.textMuted },
+  inactiveBadge: { backgroundColor: "#FBEAEA", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  inactiveBadgeText: { color: colors.danger, fontSize: 10, fontWeight: "700" },
   formHeader: { padding: spacing.lg, paddingBottom: 0 },
   backLink: { color: colors.textMuted, fontSize: 14 },
   formContent: { padding: spacing.lg },
+  formTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.lg },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -236,4 +367,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   submitText: { color: colors.white, fontWeight: "700", fontSize: 15 },
+  toggleButton: {
+    borderRadius: radius.pill,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: spacing.md,
+    borderWidth: 1,
+  },
+  deactivateButton: { borderColor: colors.danger },
+  reactivateButton: { borderColor: colors.success },
+  deactivateText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
+  reactivateText: { color: colors.success, fontWeight: "700", fontSize: 15 },
 });

@@ -8,6 +8,7 @@ const MENU_ITEMS = ["Edit Profile", "Security & Authentication", "Privacy & Data
 const ROUTES = {
   "Edit Profile": "EditProfile",
   "Security & Authentication": "Security",
+  "Privacy & Data Control": "PrivacyControl",
   "Change Password": "ChangePassword",
 };
 
@@ -24,7 +25,6 @@ export default function AccountSettingScreen({ navigation }) {
   function handleMenuPress(item) {
     const route = ROUTES[item];
     if (route) navigation.navigate(route);
-    // "Privacy & Data Control" isn't wired up yet - tapping it does nothing.
   }
 
   return (

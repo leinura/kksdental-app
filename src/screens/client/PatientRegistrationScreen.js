@@ -13,10 +13,11 @@ import {
 import apiClient from "../../api/client";
 import { useCatalog } from "../../hooks/useCatalog";
 import CaseDetailsFields from "../../components/CaseDetailsFields";
+import UpiQrModal from "../../components/UpiQrModal";
 import { Field, PillSelect } from "../../components/FormControls";
 import { colors, spacing, radius } from "../../theme/colors";
 
-export default function PatientRegistrationScreen({ navigation }) {
+export default function PatientRegistrationScreen() {
   const { loading: loadingCatalog, services, warranties, toothShades, priceList, reload } = useCatalog();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -30,6 +31,11 @@ export default function PatientRegistrationScreen({ navigation }) {
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Set right after a successful registration - shows the inline "how will
+  // this be paid" step below the form instead of navigating away.
+  const [justRegistered, setJustRegistered] = useState(null); // { patient, case }
+  const [upiModalVisible, setUpiModalVisible] = useState(false);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -47,6 +53,7 @@ export default function PatientRegistrationScreen({ navigation }) {
     setToothShadeId(null);
     setToothNumbers([]);
     setQuantityOverride(null);
+    setJustRegistered(null);
   }
 
   async function handleRegister() {
@@ -67,25 +74,29 @@ export default function PatientRegistrationScreen({ navigation }) {
         toothNumbers,
         quantity: quantityOverride,
       });
-      const prefill = { serviceId, serviceTypeId, warrantyId, toothShadeId, toothNumbers, quantityOverride };
-      Alert.alert(
-        "Patient Registered",
-        `${res.data.patient.fullName} (${res.data.patient.patientCode}) registered successfully. Case ${res.data.case.caseCode} created.`,
-        [
-          {
-            text: "Continue to Billing",
-            onPress: () => {
-              navigation.navigate("Billing", { patient: res.data.patient, prefill });
-              resetForm();
-            },
-          },
-        ]
-      );
+      setJustRegistered(res.data);
     } catch (err) {
       Alert.alert("Registration failed", err.response?.data?.error || "Please try again.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleCashNoted() {
+    Alert.alert(
+      "Cash payment noted",
+      "The lab will confirm once received. You can start registering the next patient now."
+    );
+    resetForm();
+  }
+
+  function handleUpiSelected() {
+    setUpiModalVisible(true);
+  }
+
+  function handleUpiModalClose() {
+    setUpiModalVisible(false);
+    resetForm();
   }
 
   if (loadingCatalog) {
@@ -97,48 +108,93 @@ export default function PatientRegistrationScreen({ navigation }) {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-    >
-      <Text style={styles.heading}>Register Patient</Text>
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+      >
+        <Text style={styles.heading}>Register Patient</Text>
 
-      <Field label="Patient's Full Name *">
-        <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="Patient's Full Name" />
-      </Field>
+        <Field label="Patient's Full Name *">
+          <TextInput
+            style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="Patient's Full Name"
+            editable={!justRegistered}
+          />
+        </Field>
 
-      <Field label="Gender *">
-        <PillSelect options={["Male", "Female", "Other"]} value={gender} onSelect={setGender} />
-      </Field>
+        <Field label="Gender *">
+          <PillSelect options={["Male", "Female", "Other"]} value={gender} onSelect={justRegistered ? undefined : setGender} />
+        </Field>
 
-      <Field label="Age *">
-        <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="number-pad" placeholder="Age" />
-      </Field>
+        <Field label="Age *">
+          <TextInput
+            style={styles.input}
+            value={age}
+            onChangeText={setAge}
+            keyboardType="number-pad"
+            placeholder="Age"
+            editable={!justRegistered}
+          />
+        </Field>
 
-      <CaseDetailsFields
-        services={services}
-        warranties={warranties}
-        toothShades={toothShades}
-        priceList={priceList}
-        serviceId={serviceId}
-        setServiceId={setServiceId}
-        serviceTypeId={serviceTypeId}
-        setServiceTypeId={setServiceTypeId}
-        warrantyId={warrantyId}
-        setWarrantyId={setWarrantyId}
-        toothShadeId={toothShadeId}
-        setToothShadeId={setToothShadeId}
-        toothNumbers={toothNumbers}
-        setToothNumbers={setToothNumbers}
-        quantityOverride={quantityOverride}
-        setQuantityOverride={setQuantityOverride}
+        <CaseDetailsFields
+          services={services}
+          warranties={warranties}
+          toothShades={toothShades}
+          priceList={priceList}
+          serviceId={serviceId}
+          setServiceId={justRegistered ? () => {} : setServiceId}
+          serviceTypeId={serviceTypeId}
+          setServiceTypeId={justRegistered ? () => {} : setServiceTypeId}
+          warrantyId={warrantyId}
+          setWarrantyId={justRegistered ? () => {} : setWarrantyId}
+          toothShadeId={toothShadeId}
+          setToothShadeId={justRegistered ? () => {} : setToothShadeId}
+          toothNumbers={toothNumbers}
+          setToothNumbers={justRegistered ? () => {} : setToothNumbers}
+          quantityOverride={quantityOverride}
+          setQuantityOverride={justRegistered ? () => {} : setQuantityOverride}
+        />
+
+        {!justRegistered && (
+          <TouchableOpacity style={styles.submitButton} onPress={handleRegister} disabled={submitting}>
+            {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.submitText}>Register</Text>}
+          </TouchableOpacity>
+        )}
+
+        {justRegistered && (
+          <View style={styles.paymentCard}>
+            <Text style={styles.paymentHeading}>
+              {justRegistered.patient.fullName} registered - Case {justRegistered.case.caseCode}
+            </Text>
+            <Text style={styles.paymentSubtext}>How will this be paid?</Text>
+
+            <View style={styles.paymentButtonRow}>
+              <TouchableOpacity style={[styles.paymentButton, styles.cashButton]} onPress={handleCashNoted}>
+                <Text style={styles.paymentButtonText}>Cash</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.paymentButton, styles.upiButton]} onPress={handleUpiSelected}>
+                <Text style={styles.paymentButtonText}>UPI (GPay)</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity onPress={resetForm}>
+              <Text style={styles.skipLink}>Skip - decide later</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+
+      <UpiQrModal
+        visible={upiModalVisible}
+        amount={justRegistered?.case?.totalPrice || 0}
+        onClose={handleUpiModalClose}
       />
-
-      <TouchableOpacity style={styles.submitButton} onPress={handleRegister} disabled={submitting}>
-        {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.submitText}>Register</Text>}
-      </TouchableOpacity>
-    </ScrollView>
+    </>
   );
 }
 
@@ -164,4 +220,19 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   submitText: { color: colors.white, fontWeight: "700", fontSize: 15 },
+  paymentCard: {
+    backgroundColor: colors.lavenderSoft,
+    borderRadius: radius.card,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
+    alignItems: "center",
+  },
+  paymentHeading: { fontSize: 15, fontWeight: "700", color: colors.text, textAlign: "center", marginBottom: 4 },
+  paymentSubtext: { fontSize: 13, color: colors.textMuted, marginBottom: spacing.md },
+  paymentButtonRow: { flexDirection: "row", gap: spacing.sm, width: "100%" },
+  paymentButton: { flex: 1, borderRadius: radius.pill, paddingVertical: 14, alignItems: "center" },
+  cashButton: { backgroundColor: colors.dark },
+  upiButton: { backgroundColor: colors.success },
+  paymentButtonText: { color: colors.white, fontWeight: "700", fontSize: 14 },
+  skipLink: { color: colors.textMuted, fontSize: 12, marginTop: spacing.md, textDecorationLine: "underline" },
 });

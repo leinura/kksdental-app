@@ -19,6 +19,7 @@ import AdminEditProfileScreen from "../screens/admin/AdminEditProfileScreen";
 import ChangePasswordScreen from "../screens/ChangePasswordScreen";
 import SecurityScreen from "../screens/SecurityScreen";
 import NotificationsScreen from "../screens/admin/NotificationsScreen";
+import OrderDetailScreen from "../screens/admin/OrderDetailScreen";
 import NotificationBell from "../components/NotificationBell";
 import { useRegisterPushToken } from "../hooks/useRegisterPushToken";
 import { colors } from "../theme/colors";
@@ -29,6 +30,7 @@ const TAB_ICONS = {
   TrackOrders: "navigate-outline",
   AdminMore: "ellipsis-horizontal-circle-outline",
   Notifications: "notifications-outline",
+  OrderDetail: "document-text-outline",
 };
 
 const Tab = createBottomTabNavigator();
@@ -83,6 +85,11 @@ export default function AdminTabNavigator() {
         name="Notifications"
         component={NotificationsScreen}
         options={{ title: "Notifications", tabBarButton: () => null, tabBarStyle: { display: "none" } }}
+      />
+      <Tab.Screen
+        name="OrderDetail"
+        component={OrderDetailScreen}
+        options={{ title: "Order Details", tabBarButton: () => null, tabBarStyle: { display: "none" } }}
       />
     </Tab.Navigator>
   );

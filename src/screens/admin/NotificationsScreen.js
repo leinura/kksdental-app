@@ -1,24 +1,31 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import apiClient from "../../api/client";
 import { colors, spacing, radius } from "../../theme/colors";
 
-export default function NotificationsScreen() {
+export default function NotificationsScreen({ navigation }) {
   const [notifications, setNotifications] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const res = await apiClient.get("/notifications");
       setNotifications(res.data);
       apiClient.patch("/notifications/mark-read").catch(() => {});
     } catch (err) {
-      setNotifications([]);
+      setNotifications((prev) => prev ?? []);
     }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
   }
 
   if (notifications === null) {
@@ -35,9 +42,14 @@ export default function NotificationsScreen() {
       data={notifications}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       ListEmptyComponent={<Text style={styles.emptyText}>No notifications yet.</Text>}
       renderItem={({ item }) => (
-        <View style={styles.row}>
+        <TouchableOpacity
+          style={styles.row}
+          disabled={!item.caseId}
+          onPress={() => navigation.navigate("OrderDetail", { caseId: item.caseId })}
+        >
           <View style={[styles.iconCircle, { backgroundColor: item.type === "PAYMENT" ? colors.success : colors.dark }]}>
             <Ionicons name={item.type === "PAYMENT" ? "cash-outline" : "receipt-outline"} size={16} color={colors.white} />
           </View>
@@ -48,7 +60,8 @@ export default function NotificationsScreen() {
               {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </Text>
           </View>
-        </View>
+          {item.caseId && <Text style={styles.arrow}>›</Text>}
+        </TouchableOpacity>
       )}
     />
   );
@@ -70,4 +83,5 @@ const styles = StyleSheet.create({
   iconCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", marginTop: 2 },
   message: { fontSize: 14, fontWeight: "600", color: colors.text, lineHeight: 20 },
   date: { fontSize: 11, color: colors.textMuted, marginTop: 4 },
+  arrow: { fontSize: 18, color: colors.textMuted, marginTop: 4 },
 });
