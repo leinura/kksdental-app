@@ -175,15 +175,16 @@ export default function PatientRegistrationScreen() {
             />
           </View>
 
+          {!justRegistered && (
+            <TouchableOpacity style={styles.editLink} onPress={() => setStep("form")}>
+              <Text style={styles.editLinkText}>‹ Back to edit</Text>
+            </TouchableOpacity>
+          )}
+
           {step === "review" && (
-            <>
-              <TouchableOpacity style={styles.editLink} onPress={() => setStep("form")}>
-                <Text style={styles.editLinkText}>‹ Back to edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmButton} onPress={() => setStep("choosing")}>
-                <Text style={styles.confirmButtonText}>Confirm</Text>
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity style={styles.confirmButton} onPress={() => setStep("choosing")}>
+              <Text style={styles.confirmButtonText}>Confirm</Text>
+            </TouchableOpacity>
           )}
 
           {step === "choosing" && !justRegistered && (

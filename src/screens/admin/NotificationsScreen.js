@@ -55,6 +55,11 @@ export default function NotificationsScreen({ navigation }) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.message}>{item.message}</Text>
+            {item.comment ? (
+              <Text style={styles.comment} numberOfLines={2}>
+                💬 {item.comment}
+              </Text>
+            ) : null}
             <Text style={styles.date}>
               {new Date(item.createdAt).toLocaleDateString()} ·{" "}
               {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -82,6 +87,7 @@ const styles = StyleSheet.create({
   },
   iconCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", marginTop: 2 },
   message: { fontSize: 14, fontWeight: "600", color: colors.text, lineHeight: 20 },
+  comment: { fontSize: 12, color: colors.textMuted, fontStyle: "italic", marginTop: 2 },
   date: { fontSize: 11, color: colors.textMuted, marginTop: 4 },
   arrow: { fontSize: 18, color: colors.textMuted, marginTop: 4 },
 });

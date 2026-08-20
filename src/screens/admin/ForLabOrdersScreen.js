@@ -57,6 +57,11 @@ export default function ForLabOrdersScreen({ route, navigation }) {
             <Text style={styles.rowTitle}>
               {item.patient?.fullName} · {item.service?.name}
             </Text>
+            {item.comment ? (
+              <Text style={styles.rowComment} numberOfLines={1}>
+                💬 {item.comment}
+              </Text>
+            ) : null}
             <View style={styles.rowBottom}>
               <Text style={styles.rowCode}>{item.caseCode}</Text>
               <PaymentTag paymentStatus={item.paymentStatus} />
@@ -80,4 +85,5 @@ const styles = StyleSheet.create({
   rowTitle: { fontSize: 15, fontWeight: "600", color: colors.text, marginBottom: 6 },
   rowBottom: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   rowCode: { fontSize: 12, color: colors.textMuted },
+  rowComment: { fontSize: 12, color: colors.textMuted, fontStyle: "italic", marginBottom: 6 },
 });
