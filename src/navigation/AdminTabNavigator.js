@@ -6,6 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
 import OrdersScreen from "../screens/admin/OrdersScreen";
 import TrackOrdersScreen from "../screens/admin/TrackOrdersScreen";
+import ForLabScreen from "../screens/admin/ForLabScreen";
+import ForLabOrdersScreen from "../screens/admin/ForLabOrdersScreen";
 import AdminMoreMenuScreen from "../screens/admin/AdminMoreMenuScreen";
 import InvoiceScreen from "../screens/admin/InvoiceScreen";
 import InvoiceDetailScreen from "../screens/admin/InvoiceDetailScreen";
@@ -28,9 +30,11 @@ const TAB_ICONS = {
   Dashboard: "speedometer-outline",
   Orders: "receipt-outline",
   TrackOrders: "navigate-outline",
+  ForLab: "flask-outline",
   AdminMore: "ellipsis-horizontal-circle-outline",
   Notifications: "notifications-outline",
   OrderDetail: "document-text-outline",
+  ForLabOrders: "list-outline",
 };
 
 const Tab = createBottomTabNavigator();
@@ -80,6 +84,7 @@ export default function AdminTabNavigator() {
       <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
       <Tab.Screen name="Orders" component={OrdersScreen} />
       <Tab.Screen name="TrackOrders" component={TrackOrdersScreen} options={{ title: "Track Orders" }} />
+      <Tab.Screen name="ForLab" component={ForLabScreen} options={{ title: "For Lab" }} />
       <Tab.Screen name="AdminMore" component={AdminMoreStackNavigator} options={{ title: "More", headerShown: false }} />
       <Tab.Screen
         name="Notifications"
@@ -90,6 +95,11 @@ export default function AdminTabNavigator() {
         name="OrderDetail"
         component={OrderDetailScreen}
         options={{ title: "Order Details", tabBarButton: () => null, tabBarStyle: { display: "none" } }}
+      />
+      <Tab.Screen
+        name="ForLabOrders"
+        component={ForLabOrdersScreen}
+        options={{ title: "Clinic Orders", tabBarButton: () => null, tabBarStyle: { display: "none" } }}
       />
     </Tab.Navigator>
   );
