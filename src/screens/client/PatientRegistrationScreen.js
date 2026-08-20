@@ -32,8 +32,11 @@ export default function PatientRegistrationScreen() {
   const [quantityOverride, setQuantityOverride] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Set right after a successful registration - shows the inline "how will
-  // this be paid" step below the form instead of navigating away.
+  // "form" -> filling everything in
+  // "review" -> read-only summary shown, waiting for Confirm
+  // "choosing" -> Confirm was tapped, showing Pay & Order Now / Order Now (Pay Later)
+  const [step, setStep] = useState("form");
+
   const [justRegistered, setJustRegistered] = useState(null); // { patient, case }
   const [upiModalVisible, setUpiModalVisible] = useState(false);
 
@@ -43,7 +46,7 @@ export default function PatientRegistrationScreen() {
     setRefreshing(false);
   }
 
-  function resetForm() {
+  function resetAll() {
     setFullName("");
     setGender("");
     setAge("");
@@ -54,13 +57,20 @@ export default function PatientRegistrationScreen() {
     setToothNumbers([]);
     setQuantityOverride(null);
     setJustRegistered(null);
+    setStep("form");
   }
 
-  async function handleRegister() {
+  function handleReview() {
     if (!fullName || !gender || !age || !serviceId || !serviceTypeId || !warrantyId) {
       Alert.alert("Missing information", "Please fill in all required fields.");
       return;
     }
+    setStep("review");
+  }
+
+  // Actually creates the patient + first case. Called from whichever button
+  // the clinic picks after Confirm - nothing is saved before this point.
+  async function createRegistration() {
     setSubmitting(true);
     try {
       const res = await apiClient.post("/patients/register", {
@@ -74,11 +84,30 @@ export default function PatientRegistrationScreen() {
         toothNumbers,
         quantity: quantityOverride,
       });
-      setJustRegistered(res.data);
+      return res.data;
     } catch (err) {
       Alert.alert("Registration failed", err.response?.data?.error || "Please try again.");
+      return null;
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleOrderNowPayLater() {
+    const result = await createRegistration();
+    if (result) {
+      Alert.alert(
+        "Order Placed",
+        `${result.patient.fullName} registered - Case ${result.case.caseCode}. Payment pending.`
+      );
+      resetAll();
+    }
+  }
+
+  async function handlePayAndOrderNow() {
+    const result = await createRegistration();
+    if (result) {
+      setJustRegistered(result);
     }
   }
 
@@ -87,7 +116,7 @@ export default function PatientRegistrationScreen() {
       "Cash payment noted",
       "The lab will confirm once received. You can start registering the next patient now."
     );
-    resetForm();
+    resetAll();
   }
 
   function handleUpiSelected() {
@@ -96,7 +125,7 @@ export default function PatientRegistrationScreen() {
 
   function handleUpiModalClose() {
     setUpiModalVisible(false);
-    resetForm();
+    resetAll();
   }
 
   if (loadingCatalog) {
@@ -107,94 +136,160 @@ export default function PatientRegistrationScreen() {
     );
   }
 
-  return (
-    <>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-      >
-        <Text style={styles.heading}>Register Patient</Text>
+  // --- Review summary values ---
+  const selectedService = services.find((s) => s.id === serviceId);
+  const selectedServiceType = selectedService?.serviceTypes?.find((t) => t.id === serviceTypeId);
+  const selectedWarranty = warranties.find((w) => w.id === warrantyId);
+  const selectedShade = toothShades.find((s) => s.id === toothShadeId);
+  const quantity = quantityOverride ?? (toothNumbers.length || 1);
+  const matchedPrice = priceList.find(
+    (p) => p.serviceId === serviceId && p.serviceTypeId === serviceTypeId && p.warrantyId === warrantyId
+  );
+  const unitPrice = matchedPrice ? Number(matchedPrice.price) : null;
+  const totalPrice = unitPrice != null ? unitPrice * quantity : null;
 
-        <Field label="Patient's Full Name *">
-          <TextInput
-            style={styles.input}
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Patient's Full Name"
-            editable={!justRegistered}
-          />
-        </Field>
+  if (step === "review" || step === "choosing") {
+    return (
+      <>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          <Text style={styles.heading}>Review Details</Text>
 
-        <Field label="Gender *">
-          <PillSelect options={["Male", "Female", "Other"]} value={gender} onSelect={justRegistered ? undefined : setGender} />
-        </Field>
+          <View style={styles.summaryCard}>
+            <SummaryRow label="Patient Name" value={fullName} />
+            <SummaryRow label="Gender" value={gender} />
+            <SummaryRow label="Age" value={age} />
+            <SummaryRow label="Service" value={selectedService?.name} />
+            <SummaryRow label="Service Type" value={selectedServiceType?.name} />
+            <SummaryRow label="Warranty" value={selectedWarranty?.label || "No warranty"} />
+            <SummaryRow label="Tooth Shade" value={selectedShade?.code || "-"} />
+            <SummaryRow label="Tooth Number(s)" value={toothNumbers.length > 0 ? toothNumbers.join(", ") : "-"} />
+            <SummaryRow label="Quantity" value={String(quantity)} />
+            <SummaryRow
+              label="Price"
+              value={totalPrice != null ? `₹${totalPrice.toFixed(2)}` : "-"}
+              bold
+            />
+          </View>
 
-        <Field label="Age *">
-          <TextInput
-            style={styles.input}
-            value={age}
-            onChangeText={setAge}
-            keyboardType="number-pad"
-            placeholder="Age"
-            editable={!justRegistered}
-          />
-        </Field>
-
-        <CaseDetailsFields
-          services={services}
-          warranties={warranties}
-          toothShades={toothShades}
-          priceList={priceList}
-          serviceId={serviceId}
-          setServiceId={justRegistered ? () => {} : setServiceId}
-          serviceTypeId={serviceTypeId}
-          setServiceTypeId={justRegistered ? () => {} : setServiceTypeId}
-          warrantyId={warrantyId}
-          setWarrantyId={justRegistered ? () => {} : setWarrantyId}
-          toothShadeId={toothShadeId}
-          setToothShadeId={justRegistered ? () => {} : setToothShadeId}
-          toothNumbers={toothNumbers}
-          setToothNumbers={justRegistered ? () => {} : setToothNumbers}
-          quantityOverride={quantityOverride}
-          setQuantityOverride={justRegistered ? () => {} : setQuantityOverride}
-        />
-
-        {!justRegistered && (
-          <TouchableOpacity style={styles.submitButton} onPress={handleRegister} disabled={submitting}>
-            {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.submitText}>Register</Text>}
-          </TouchableOpacity>
-        )}
-
-        {justRegistered && (
-          <View style={styles.paymentCard}>
-            <Text style={styles.paymentHeading}>
-              {justRegistered.patient.fullName} registered - Case {justRegistered.case.caseCode}
-            </Text>
-            <Text style={styles.paymentSubtext}>How will this be paid?</Text>
-
-            <View style={styles.paymentButtonRow}>
-              <TouchableOpacity style={[styles.paymentButton, styles.cashButton]} onPress={handleCashNoted}>
-                <Text style={styles.paymentButtonText}>Cash</Text>
+          {step === "review" && (
+            <>
+              <TouchableOpacity style={styles.editLink} onPress={() => setStep("form")}>
+                <Text style={styles.editLinkText}>‹ Back to edit</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.paymentButton, styles.upiButton]} onPress={handleUpiSelected}>
-                <Text style={styles.paymentButtonText}>UPI (GPay)</Text>
+              <TouchableOpacity style={styles.confirmButton} onPress={() => setStep("choosing")}>
+                <Text style={styles.confirmButtonText}>Confirm</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {step === "choosing" && !justRegistered && (
+            <View style={styles.choiceCard}>
+              <Text style={styles.choiceHeading}>How will this be paid?</Text>
+              <View style={styles.choiceButtonRow}>
+                <TouchableOpacity
+                  style={[styles.choiceButton, styles.payNowButton]}
+                  onPress={handlePayAndOrderNow}
+                  disabled={submitting}
+                >
+                  <Text style={styles.choiceButtonText}>Pay & Order Now</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.choiceButton, styles.orderLaterButton]}
+                  onPress={handleOrderNowPayLater}
+                  disabled={submitting}
+                >
+                  <Text style={styles.choiceButtonText}>Order Now (Pay Later)</Text>
+                </TouchableOpacity>
+              </View>
+              {submitting && <ActivityIndicator color={colors.dark} style={{ marginTop: spacing.md }} />}
+            </View>
+          )}
+
+          {justRegistered && (
+            <View style={styles.paymentCard}>
+              <Text style={styles.paymentHeading}>
+                {justRegistered.patient.fullName} registered - Case {justRegistered.case.caseCode}
+              </Text>
+              <Text style={styles.paymentSubtext}>Choose a payment method</Text>
+
+              <View style={styles.paymentButtonRow}>
+                <TouchableOpacity style={[styles.paymentButton, styles.cashButton]} onPress={handleCashNoted}>
+                  <Text style={styles.paymentButtonText}>Cash</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.paymentButton, styles.upiButton]} onPress={handleUpiSelected}>
+                  <Text style={styles.paymentButtonText}>UPI (GPay)</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity onPress={resetAll}>
+                <Text style={styles.skipLink}>Skip - decide later</Text>
               </TouchableOpacity>
             </View>
+          )}
+        </ScrollView>
 
-            <TouchableOpacity onPress={resetForm}>
-              <Text style={styles.skipLink}>Skip - decide later</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
+        <UpiQrModal
+          visible={upiModalVisible}
+          amount={justRegistered?.case?.totalPrice || 0}
+          onClose={handleUpiModalClose}
+        />
+      </>
+    );
+  }
 
-      <UpiQrModal
-        visible={upiModalVisible}
-        amount={justRegistered?.case?.totalPrice || 0}
-        onClose={handleUpiModalClose}
+  // --- Form step ---
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+    >
+      <Text style={styles.heading}>Register Patient</Text>
+
+      <Field label="Patient's Full Name *">
+        <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="Patient's Full Name" />
+      </Field>
+
+      <Field label="Gender *">
+        <PillSelect options={["Male", "Female", "Other"]} value={gender} onSelect={setGender} />
+      </Field>
+
+      <Field label="Age *">
+        <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="number-pad" placeholder="Age" />
+      </Field>
+
+      <CaseDetailsFields
+        services={services}
+        warranties={warranties}
+        toothShades={toothShades}
+        priceList={priceList}
+        serviceId={serviceId}
+        setServiceId={setServiceId}
+        serviceTypeId={serviceTypeId}
+        setServiceTypeId={setServiceTypeId}
+        warrantyId={warrantyId}
+        setWarrantyId={setWarrantyId}
+        toothShadeId={toothShadeId}
+        setToothShadeId={setToothShadeId}
+        toothNumbers={toothNumbers}
+        setToothNumbers={setToothNumbers}
+        quantityOverride={quantityOverride}
+        setQuantityOverride={setQuantityOverride}
       />
-    </>
+
+      <TouchableOpacity style={styles.submitButton} onPress={handleReview}>
+        <Text style={styles.submitText}>Review</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+function SummaryRow({ label, value, bold }) {
+  return (
+    <View style={styles.summaryRow}>
+      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text style={[styles.summaryValue, bold && styles.summaryValueBold]}>{value || "-"}</Text>
+    </View>
   );
 }
 
@@ -220,6 +315,44 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   submitText: { color: colors.white, fontWeight: "700", fontSize: 15 },
+
+  summaryCard: {
+    backgroundColor: colors.offWhite,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  summaryLabel: { fontSize: 13, color: colors.textMuted },
+  summaryValue: { fontSize: 13, color: colors.text, fontWeight: "600", flexShrink: 1, textAlign: "right" },
+  summaryValueBold: { fontSize: 16, fontWeight: "800" },
+
+  editLink: { marginTop: spacing.md, alignItems: "center" },
+  editLinkText: { color: colors.textMuted, fontSize: 13, textDecorationLine: "underline" },
+  confirmButton: {
+    backgroundColor: colors.dark,
+    borderRadius: radius.pill,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: spacing.md,
+  },
+  confirmButtonText: { color: colors.white, fontWeight: "700", fontSize: 15 },
+
+  choiceCard: { marginTop: spacing.lg, alignItems: "center" },
+  choiceHeading: { fontSize: 15, fontWeight: "700", color: colors.text, marginBottom: spacing.md },
+  choiceButtonRow: { flexDirection: "row", gap: spacing.sm, width: "100%" },
+  choiceButton: { flex: 1, borderRadius: radius.pill, paddingVertical: 14, alignItems: "center" },
+  payNowButton: { backgroundColor: colors.success },
+  orderLaterButton: { backgroundColor: colors.dark },
+  choiceButtonText: { color: colors.white, fontWeight: "700", fontSize: 13, textAlign: "center" },
+
   paymentCard: {
     backgroundColor: colors.lavenderSoft,
     borderRadius: radius.card,
