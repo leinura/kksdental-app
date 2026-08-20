@@ -25,6 +25,8 @@ export default function CaseDetailsFields({
   setToothNumbers,
   quantityOverride,
   setQuantityOverride,
+  comment,
+  setComment,
 }) {
   const selectedService = services.find((s) => s.id === serviceId);
   const serviceTypes = selectedService ? selectedService.serviceTypes : [];
@@ -123,6 +125,17 @@ export default function CaseDetailsFields({
           </Text>
         </View>
       </Field>
+
+      <Field label="Comment (optional)">
+        <TextInput
+          style={[styles.input, styles.commentInput]}
+          value={comment}
+          onChangeText={setComment}
+          placeholder="Any notes or special instructions for the lab..."
+          placeholderTextColor={colors.textMuted}
+          multiline
+        />
+      </Field>
     </View>
   );
 }
@@ -137,6 +150,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
   },
+  commentInput: { minHeight: 80, textAlignVertical: "top" },
   priceBox: {
     backgroundColor: colors.offWhite,
     borderRadius: radius.input,

@@ -30,6 +30,7 @@ export default function PatientRegistrationScreen() {
   const [toothShadeId, setToothShadeId] = useState(null);
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
+  const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // "form" -> filling everything in
@@ -56,6 +57,7 @@ export default function PatientRegistrationScreen() {
     setToothShadeId(null);
     setToothNumbers([]);
     setQuantityOverride(null);
+    setComment("");
     setJustRegistered(null);
     setStep("form");
   }
@@ -83,6 +85,7 @@ export default function PatientRegistrationScreen() {
         toothShadeId,
         toothNumbers,
         quantity: quantityOverride,
+        comment: comment.trim() || undefined,
       });
       return res.data;
     } catch (err) {
@@ -164,6 +167,7 @@ export default function PatientRegistrationScreen() {
             <SummaryRow label="Tooth Shade" value={selectedShade?.code || "-"} />
             <SummaryRow label="Tooth Number(s)" value={toothNumbers.length > 0 ? toothNumbers.join(", ") : "-"} />
             <SummaryRow label="Quantity" value={String(quantity)} />
+            <SummaryRow label="Comment" value={comment.trim() || "-"} />
             <SummaryRow
               label="Price"
               value={totalPrice != null ? `₹${totalPrice.toFixed(2)}` : "-"}
@@ -275,6 +279,8 @@ export default function PatientRegistrationScreen() {
         setToothNumbers={setToothNumbers}
         quantityOverride={quantityOverride}
         setQuantityOverride={setQuantityOverride}
+        comment={comment}
+        setComment={setComment}
       />
 
       <TouchableOpacity style={styles.submitButton} onPress={handleReview}>

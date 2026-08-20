@@ -38,6 +38,7 @@ export default function BillingScreen({ navigation, route }) {
   const [toothShadeId, setToothShadeId] = useState(null);
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
+  const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [upiModalVisible, setUpiModalVisible] = useState(false);
@@ -107,6 +108,7 @@ export default function BillingScreen({ navigation, route }) {
     setToothShadeId(null);
     setToothNumbers([]);
     setQuantityOverride(null);
+    setComment("");
   }
 
   async function selectPatient(patient) {
@@ -152,6 +154,7 @@ export default function BillingScreen({ navigation, route }) {
         toothShadeId,
         toothNumbers,
         quantity: quantityOverride,
+        comment: comment.trim() || undefined,
       });
       resetCaseFields();
       loadPatientOrders(selectedPatient.id);
@@ -349,6 +352,8 @@ export default function BillingScreen({ navigation, route }) {
           setToothNumbers={setToothNumbers}
           quantityOverride={quantityOverride}
           setQuantityOverride={setQuantityOverride}
+          comment={comment}
+          setComment={setComment}
         />
 
         <View style={styles.buttonRow}>

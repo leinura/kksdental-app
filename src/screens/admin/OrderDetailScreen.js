@@ -95,6 +95,13 @@ export default function OrderDetailScreen({ route }) {
         <DetailRow label="Total" value={`₹${Number(order.totalPrice).toFixed(2)}`} bold />
       </View>
 
+      {order.comment && (
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Comment</Text>
+          <Text style={styles.commentText}>{order.comment}</Text>
+        </View>
+      )}
+
       {order.transactions?.length > 0 && (
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Payments on this order</Text>
@@ -150,6 +157,7 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 13, color: colors.textMuted },
   detailValue: { fontSize: 13, color: colors.text, fontWeight: "600" },
   detailValueBold: { fontSize: 15, fontWeight: "800" },
+  commentText: { fontSize: 14, color: colors.text, lineHeight: 20 },
   transactionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
