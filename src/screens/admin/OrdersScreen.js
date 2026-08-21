@@ -115,7 +115,10 @@ export default function OrdersScreen({ navigation }) {
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.row} onPress={() => navigation.navigate("OrderDetail", { caseId: item.id })}>
               <View style={styles.rowTop}>
-                <Text style={styles.rowDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                <View style={styles.rowDateRow}>
+                  <View style={[styles.pickupDot, { backgroundColor: item.pickedUpAt ? colors.success : colors.danger }]} />
+                  <Text style={styles.rowDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                </View>
                 <StatusBadge status={item.deliveryStatus} />
               </View>
               <Text style={styles.rowClinic}>{item.clinic?.name}</Text>
@@ -173,6 +176,8 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl },
   row: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
   rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  rowDateRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  pickupDot: { width: 8, height: 8, borderRadius: 4 },
   rowDate: { fontSize: 12, color: colors.textMuted },
   rowClinic: { fontSize: 12, color: colors.textMuted, fontWeight: "600", marginBottom: 2 },
   rowTitle: { fontSize: 15, fontWeight: "600", color: colors.text, marginBottom: 6 },

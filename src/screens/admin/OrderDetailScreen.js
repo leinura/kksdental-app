@@ -39,6 +39,15 @@ export default function OrderDetailScreen({ route }) {
     setRefreshing(false);
   }
 
+  async function markPickedUp() {
+    try {
+      const res = await apiClient.patch(`/cases/${caseId}/pickup`);
+      setOrder((prev) => ({ ...prev, pickedUpAt: res.data.pickedUpAt }));
+    } catch (err) {
+      // silent - the button just stays visible, they can try again
+    }
+  }
+
   if (order === null) {
     return (
       <View style={styles.loadingContainer}>
@@ -64,7 +73,16 @@ export default function OrderDetailScreen({ route }) {
     >
       <View style={styles.headerRow}>
         <Text style={styles.caseCode}>{order.caseCode}</Text>
-        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          {order.pickedUpAt ? (
+            <View style={styles.pickedUpBadge}>
+              <Text style={styles.pickedUpBadgeText}>Picked Up</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.pickUpButton} onPress={markPickedUp}>
+              <Text style={styles.pickUpButtonText}>Pick Up</Text>
+            </TouchableOpacity>
+          )}
           <StatusBadge status={order.deliveryStatus} />
           <PaymentTag paymentStatus={order.paymentStatus} />
         </View>
@@ -208,6 +226,20 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.textMuted },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   caseCode: { fontSize: 20, fontWeight: "800", color: colors.text },
+  pickUpButton: {
+    backgroundColor: colors.dark,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  pickUpButtonText: { color: colors.white, fontSize: 11, fontWeight: "700" },
+  pickedUpBadge: {
+    backgroundColor: "#E3F5EC",
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  pickedUpBadgeText: { color: colors.success, fontSize: 11, fontWeight: "700" },
   dateText: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.lg },
   card: {
     backgroundColor: colors.white,
