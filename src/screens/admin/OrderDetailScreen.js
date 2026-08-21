@@ -5,6 +5,7 @@ import {
   Image,
   TouchableOpacity,
   Modal,
+  Alert,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -44,7 +45,10 @@ export default function OrderDetailScreen({ route }) {
       const res = await apiClient.patch(`/cases/${caseId}/pickup`);
       setOrder((prev) => ({ ...prev, pickedUpAt: res.data.pickedUpAt }));
     } catch (err) {
-      // silent - the button just stays visible, they can try again
+      Alert.alert(
+        "Couldn't mark as picked up",
+        err.response?.data?.error || err.message || "Unknown error - check your connection."
+      );
     }
   }
 

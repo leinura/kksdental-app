@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../api/client";
 import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
@@ -27,10 +28,12 @@ export default function OrdersScreen({ navigation }) {
     }
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    loadOrders().finally(() => setLoading(false));
-  }, [loadOrders]);
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      loadOrders().finally(() => setLoading(false));
+    }, [loadOrders])
+  );
 
   async function handleRefresh() {
     setRefreshing(true);
