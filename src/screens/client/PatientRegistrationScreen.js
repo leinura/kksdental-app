@@ -4,6 +4,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Image,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -30,6 +31,7 @@ export default function PatientRegistrationScreen() {
   const [toothShadeId, setToothShadeId] = useState(null);
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
+  const [photos, setPhotos] = useState([]); // [{ uri, base64 }]
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -57,6 +59,7 @@ export default function PatientRegistrationScreen() {
     setToothShadeId(null);
     setToothNumbers([]);
     setQuantityOverride(null);
+    setPhotos([]);
     setComment("");
     setJustRegistered(null);
     setStep("form");
@@ -85,6 +88,7 @@ export default function PatientRegistrationScreen() {
         toothShadeId,
         toothNumbers,
         quantity: quantityOverride,
+        photos: photos.map((p) => `data:image/jpeg;base64,${p.base64}`),
         comment: comment.trim() || undefined,
       });
       return res.data;
@@ -175,15 +179,28 @@ export default function PatientRegistrationScreen() {
             />
           </View>
 
-          {!justRegistered && (
-            <TouchableOpacity style={styles.editLink} onPress={() => setStep("form")}>
-              <Text style={styles.editLinkText}>‹ Back to edit</Text>
-            </TouchableOpacity>
+          {photos.length > 0 && (
+            <View style={styles.photoPreviewRow}>
+              {photos.map((photo, index) => (
+                <Image key={index} source={{ uri: photo.uri }} style={styles.photoPreviewThumb} />
+              ))}
+            </View>
           )}
 
           {step === "review" && (
-            <TouchableOpacity style={styles.confirmButton} onPress={() => setStep("choosing")}>
-              <Text style={styles.confirmButtonText}>Confirm</Text>
+            <>
+              <TouchableOpacity style={styles.editLink} onPress={() => setStep("form")}>
+                <Text style={styles.editLinkText}>‹ Back to edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmButton} onPress={() => setStep("choosing")}>
+                <Text style={styles.confirmButtonText}>Confirm</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {!justRegistered && step === "choosing" && (
+            <TouchableOpacity style={styles.editLink} onPress={() => setStep("form")}>
+              <Text style={styles.editLinkText}>‹ Back to edit</Text>
             </TouchableOpacity>
           )}
 
@@ -280,6 +297,8 @@ export default function PatientRegistrationScreen() {
         setToothNumbers={setToothNumbers}
         quantityOverride={quantityOverride}
         setQuantityOverride={setQuantityOverride}
+        photos={photos}
+        setPhotos={setPhotos}
         comment={comment}
         setComment={setComment}
       />
@@ -340,6 +359,9 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 13, color: colors.textMuted },
   summaryValue: { fontSize: 13, color: colors.text, fontWeight: "600", flexShrink: 1, textAlign: "right" },
   summaryValueBold: { fontSize: 16, fontWeight: "800" },
+
+  photoPreviewRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
+  photoPreviewThumb: { width: 64, height: 64, borderRadius: radius.input, backgroundColor: colors.offWhite },
 
   editLink: { marginTop: spacing.md, alignItems: "center" },
   editLinkText: { color: colors.textMuted, fontSize: 13, textDecorationLine: "underline" },

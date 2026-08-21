@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, Image, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
 import apiClient from "../../api/client";
 import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
@@ -95,6 +95,17 @@ export default function OrderDetailScreen({ route }) {
         <DetailRow label="Total" value={`₹${Number(order.totalPrice).toFixed(2)}`} bold />
       </View>
 
+      {order.photos?.length > 0 && (
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Patient Photos</Text>
+          <View style={styles.photoGrid}>
+            {order.photos.map((photo) => (
+              <Image key={photo.id} source={{ uri: photo.imageData }} style={styles.photoThumb} />
+            ))}
+          </View>
+        </View>
+      )}
+
       {order.comment && (
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Comment</Text>
@@ -158,6 +169,8 @@ const styles = StyleSheet.create({
   detailValue: { fontSize: 13, color: colors.text, fontWeight: "600" },
   detailValueBold: { fontSize: 15, fontWeight: "800" },
   commentText: { fontSize: 14, color: colors.text, lineHeight: 20 },
+  photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  photoThumb: { width: 90, height: 90, borderRadius: radius.input, backgroundColor: colors.offWhite },
   transactionRow: {
     flexDirection: "row",
     justifyContent: "space-between",

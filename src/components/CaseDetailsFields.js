@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import ToothChart from "./ToothChart";
 import { Field, PillSelect } from "./FormControls";
 import { colors, spacing, radius } from "../theme/colors";
@@ -25,6 +26,8 @@ export default function CaseDetailsFields({
   setToothNumbers,
   quantityOverride,
   setQuantityOverride,
+  photos,
+  setPhotos,
   comment,
   setComment,
 }) {
@@ -53,6 +56,27 @@ export default function CaseDetailsFields({
   );
   const unitPrice = matchedPrice ? Number(matchedPrice.price) : null;
   const totalPrice = unitPrice != null ? unitPrice * quantity : null;
+
+  async function addPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow photo library access to add patient photos.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: true,
+      quality: 0.5,
+    });
+    if (!result.canceled && result.assets?.[0]) {
+      const asset = result.assets[0];
+      setPhotos([...photos, { uri: asset.uri, base64: asset.base64 }]);
+    }
+  }
+
+  function removePhoto(index) {
+    setPhotos(photos.filter((_, i) => i !== index));
+  }
 
   return (
     <View>
@@ -126,6 +150,22 @@ export default function CaseDetailsFields({
         </View>
       </Field>
 
+      <Field label="Patient Photos (optional)">
+        <View style={styles.photoRow}>
+          {photos.map((photo, index) => (
+            <View key={index} style={styles.photoThumbWrap}>
+              <Image source={{ uri: photo.uri }} style={styles.photoThumb} />
+              <TouchableOpacity style={styles.photoRemoveButton} onPress={() => removePhoto(index)}>
+                <Text style={styles.photoRemoveText}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+          <TouchableOpacity style={styles.addPhotoButton} onPress={addPhoto}>
+            <Text style={styles.addPhotoText}>+</Text>
+          </TouchableOpacity>
+        </View>
+      </Field>
+
       <Field label="Comment (optional)">
         <TextInput
           style={[styles.input, styles.commentInput]}
@@ -180,4 +220,31 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
+  photoRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  photoThumbWrap: { position: "relative" },
+  photoThumb: { width: 72, height: 72, borderRadius: radius.input, backgroundColor: colors.offWhite },
+  photoRemoveButton: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoRemoveText: { color: colors.white, fontSize: 14, fontWeight: "700", lineHeight: 16 },
+  addPhotoButton: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.input,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.offWhite,
+  },
+  addPhotoText: { fontSize: 28, color: colors.textMuted, fontWeight: "300" },
 });

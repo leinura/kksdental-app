@@ -38,6 +38,7 @@ export default function BillingScreen({ navigation, route }) {
   const [toothShadeId, setToothShadeId] = useState(null);
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
+  const [photos, setPhotos] = useState([]); // [{ uri, base64 }]
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -108,6 +109,7 @@ export default function BillingScreen({ navigation, route }) {
     setToothShadeId(null);
     setToothNumbers([]);
     setQuantityOverride(null);
+    setPhotos([]);
     setComment("");
   }
 
@@ -154,6 +156,7 @@ export default function BillingScreen({ navigation, route }) {
         toothShadeId,
         toothNumbers,
         quantity: quantityOverride,
+        photos: photos.map((p) => `data:image/jpeg;base64,${p.base64}`),
         comment: comment.trim() || undefined,
       });
       resetCaseFields();
@@ -352,6 +355,8 @@ export default function BillingScreen({ navigation, route }) {
           setToothNumbers={setToothNumbers}
           quantityOverride={quantityOverride}
           setQuantityOverride={setQuantityOverride}
+          photos={photos}
+          setPhotos={setPhotos}
           comment={comment}
           setComment={setComment}
         />
