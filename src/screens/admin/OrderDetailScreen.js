@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, Image, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  Modal,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
 import apiClient from "../../api/client";
 import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
@@ -8,6 +18,7 @@ export default function OrderDetailScreen({ route }) {
   const { caseId } = route.params;
   const [order, setOrder] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(null); // null = closed, else index into order.photos
 
   const loadOrder = useCallback(async () => {
     try {
@@ -45,6 +56,7 @@ export default function OrderDetailScreen({ route }) {
   }
 
   return (
+    <>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
@@ -99,8 +111,10 @@ export default function OrderDetailScreen({ route }) {
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Patient Photos</Text>
           <View style={styles.photoGrid}>
-            {order.photos.map((photo) => (
-              <Image key={photo.id} source={{ uri: photo.imageData }} style={styles.photoThumb} />
+            {order.photos.map((photo, index) => (
+              <TouchableOpacity key={photo.id} onPress={() => setViewerIndex(index)}>
+                <Image source={{ uri: photo.imageData }} style={styles.photoThumb} />
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -127,6 +141,54 @@ export default function OrderDetailScreen({ route }) {
         </View>
       )}
     </ScrollView>
+
+    {order.photos?.length > 0 && (
+      <Modal visible={viewerIndex !== null} transparent animationType="fade" onRequestClose={() => setViewerIndex(null)}>
+        <View style={styles.viewerOverlay}>
+          <TouchableOpacity style={styles.viewerClose} onPress={() => setViewerIndex(null)}>
+            <Text style={styles.viewerCloseText}>×</Text>
+          </TouchableOpacity>
+
+          {viewerIndex !== null && (
+            <Image
+              source={{ uri: order.photos[viewerIndex].imageData }}
+              style={styles.viewerImage}
+              resizeMode="contain"
+            />
+          )}
+
+          {order.photos.length > 1 && (
+            <View style={styles.viewerNavRow}>
+              <TouchableOpacity
+                style={styles.viewerNavButton}
+                disabled={viewerIndex === 0}
+                onPress={() => setViewerIndex((i) => Math.max(0, i - 1))}
+              >
+                <Text style={[styles.viewerNavText, viewerIndex === 0 && styles.viewerNavTextDisabled]}>‹ Prev</Text>
+              </TouchableOpacity>
+              <Text style={styles.viewerCount}>
+                {viewerIndex + 1} / {order.photos.length}
+              </Text>
+              <TouchableOpacity
+                style={styles.viewerNavButton}
+                disabled={viewerIndex === order.photos.length - 1}
+                onPress={() => setViewerIndex((i) => Math.min(order.photos.length - 1, i + 1))}
+              >
+                <Text
+                  style={[
+                    styles.viewerNavText,
+                    viewerIndex === order.photos.length - 1 && styles.viewerNavTextDisabled,
+                  ]}
+                >
+                  Next ›
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </Modal>
+    )}
+    </>
   );
 }
 
@@ -178,4 +240,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  viewerOverlay: { flex: 1, backgroundColor: "rgba(10,10,10,0.95)", alignItems: "center", justifyContent: "center" },
+  viewerClose: { position: "absolute", top: 50, right: spacing.lg, zIndex: 1, padding: spacing.sm },
+  viewerCloseText: { color: colors.white, fontSize: 32, fontWeight: "300", lineHeight: 34 },
+  viewerImage: { width: "100%", height: "75%" },
+  viewerNavRow: {
+    position: "absolute",
+    bottom: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
+  },
+  viewerNavButton: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
+  viewerNavText: { color: colors.white, fontSize: 15, fontWeight: "700" },
+  viewerNavTextDisabled: { color: "rgba(255,255,255,0.3)" },
+  viewerCount: { color: colors.white, fontSize: 13, fontWeight: "600" },
 });

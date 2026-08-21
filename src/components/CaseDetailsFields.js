@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import ToothChart from "./ToothChart";
 import { Field, PillSelect } from "./FormControls";
 import { colors, spacing, radius } from "../theme/colors";
@@ -35,6 +36,7 @@ export default function CaseDetailsFields({
   const serviceTypes = selectedService ? selectedService.serviceTypes : [];
   const selectedServiceType = serviceTypes.find((t) => t.id === serviceTypeId);
   const quantity = quantityOverride ?? (toothNumbers.length || 1);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
 
   // Warranty only matters for these specific Crown service types - everything
   // else (other services, or Crown/METAL) skips the warranty question and is
@@ -65,12 +67,26 @@ export default function CaseDetailsFields({
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      base64: true,
-      quality: 0.5,
     });
-    if (!result.canceled && result.assets?.[0]) {
-      const asset = result.assets[0];
-      setPhotos([...photos, { uri: asset.uri, base64: asset.base64 }]);
+    if (result.canceled || !result.assets?.[0]) return;
+
+    setProcessingPhoto(true);
+    try {
+      // Modern phones (especially iPhones) shoot at 12MP+ - a photo can stay
+      // several MB even after JPEG quality compression, since quality and
+      // resolution are separate things. Resizing to a sensible max width
+      // fixes file size regardless of the clinic's phone, without requiring
+      // them to do anything manually.
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 1280 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      setPhotos([...photos, { uri: manipulated.uri, base64: manipulated.base64 }]);
+    } catch (err) {
+      Alert.alert("Couldn't process photo", "Please try again.");
+    } finally {
+      setProcessingPhoto(false);
     }
   }
 
@@ -160,8 +176,12 @@ export default function CaseDetailsFields({
               </TouchableOpacity>
             </View>
           ))}
-          <TouchableOpacity style={styles.addPhotoButton} onPress={addPhoto}>
-            <Text style={styles.addPhotoText}>+</Text>
+          <TouchableOpacity style={styles.addPhotoButton} onPress={addPhoto} disabled={processingPhoto}>
+            {processingPhoto ? (
+              <ActivityIndicator size="small" color={colors.textMuted} />
+            ) : (
+              <Text style={styles.addPhotoText}>+</Text>
+            )}
           </TouchableOpacity>
         </View>
       </Field>
