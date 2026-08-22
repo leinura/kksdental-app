@@ -13,6 +13,8 @@ import InvoiceScreen from "../screens/admin/InvoiceScreen";
 import InvoiceDetailScreen from "../screens/admin/InvoiceDetailScreen";
 import ManageClinicsScreen from "../screens/admin/ManageClinicsScreen";
 import ManageStaffScreen from "../screens/admin/ManageStaffScreen";
+import AdsScreen from "../screens/admin/AdsScreen";
+import EventsScreen from "../screens/admin/EventsScreen";
 import GalleryScreen from "../screens/admin/GalleryScreen";
 import BlogScreen from "../screens/admin/BlogScreen";
 import CatalogScreen from "../screens/admin/CatalogScreen";
@@ -56,6 +58,8 @@ function AdminMoreStackNavigator() {
       />
       <MoreStack.Screen name="ManageClinics" component={ManageClinicsScreen} options={{ title: "Manage Clinics" }} />
       <MoreStack.Screen name="ManageStaff" component={ManageStaffScreen} options={{ title: "Lab Staff" }} />
+      <MoreStack.Screen name="Ads" component={AdsScreen} />
+      <MoreStack.Screen name="Events" component={EventsScreen} />
       <MoreStack.Screen name="Gallery" component={GalleryScreen} />
       <MoreStack.Screen name="Blog" component={BlogScreen} />
       <MoreStack.Screen name="Catalog" component={CatalogScreen} options={{ title: "Services & Pricing" }} />

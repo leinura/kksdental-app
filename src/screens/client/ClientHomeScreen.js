@@ -3,6 +3,7 @@ import { View, Text, Image, FlatList, StyleSheet, Dimensions, ScrollView, Activi
 import { useFocusEffect } from "@react-navigation/native";
 import { Video, ResizeMode } from "expo-av";
 import apiClient from "../../api/client";
+import AdCarousel from "../../components/AdCarousel";
 import { colors, spacing, radius } from "../../theme/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -17,12 +18,14 @@ const FALLBACK_SLIDES = [
 
 export default function ClientHomeScreen() {
   const [photos, setPhotos] = useState(null);
+  const [ads, setAds] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadPhotos = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const res = await apiClient.get("/gallery");
-      setPhotos(res.data);
+      const [photosRes, adsRes] = await Promise.all([apiClient.get("/gallery"), apiClient.get("/ads")]);
+      setPhotos(photosRes.data);
+      setAds(adsRes.data);
     } catch (err) {
       setPhotos((prev) => prev ?? []);
     }
@@ -30,13 +33,13 @@ export default function ClientHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadPhotos();
-    }, [loadPhotos])
+      loadData();
+    }, [loadData])
   );
 
   async function handleRefresh() {
     setRefreshing(true);
-    await loadPhotos();
+    await loadData();
     setRefreshing(false);
   }
 
@@ -57,6 +60,8 @@ export default function ClientHomeScreen() {
       ) : (
         <PhotoCarousel slides={slides} />
       )}
+
+      <AdCarousel ads={ads} />
 
       <View style={styles.videoSection}>
         <Text style={styles.sectionLabel}>Lab Introduction</Text>

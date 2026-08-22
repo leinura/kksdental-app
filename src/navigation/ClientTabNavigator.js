@@ -7,6 +7,7 @@ import ClientHomeScreen from "../screens/client/ClientHomeScreen";
 import PatientRegistrationScreen from "../screens/client/PatientRegistrationScreen";
 import BillingScreen from "../screens/client/BillingScreen";
 import YourOrderScreen from "../screens/client/YourOrderScreen";
+import EventScreen from "../screens/client/EventScreen";
 import MoreMenuScreen from "../screens/client/MoreMenuScreen";
 import InvoicesScreen from "../screens/client/InvoicesScreen";
 import AccountSettingScreen from "../screens/client/AccountSettingScreen";
@@ -21,6 +22,7 @@ const TAB_ICONS = {
   PatientRegistration: "person-add-outline",
   Billing: "card-outline",
   YourOrder: "list-outline",
+  Event: "calendar-outline",
   More: "ellipsis-horizontal-circle-outline",
 };
 
@@ -60,6 +62,7 @@ export default function ClientTabNavigator() {
       <Tab.Screen name="PatientRegistration" component={PatientRegistrationScreen} options={{ title: "Register" }} />
       <Tab.Screen name="Billing" component={BillingScreen} options={{ title: "Billing" }} />
       <Tab.Screen name="YourOrder" component={YourOrderScreen} options={{ title: "Your Order" }} />
+      <Tab.Screen name="Event" component={EventScreen} options={{ title: "Event" }} />
       <Tab.Screen name="More" component={MoreStackNavigator} options={{ title: "More", headerShown: false }} />
     </Tab.Navigator>
   );

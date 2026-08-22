@@ -9,6 +9,8 @@ const ITEMS = [
   { label: "Services & Pricing", screen: "Catalog" },
   { label: "Gallery", screen: "Gallery" },
   { label: "Blog", screen: "Blog" },
+  { label: "Ads", screen: "Ads" },
+  { label: "Events", screen: "Events" },
   { label: "Reports", screen: "Reports" },
   { label: "Account Settings", screen: "AdminAccountSetting" },
 ];
