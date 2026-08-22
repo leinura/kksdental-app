@@ -12,6 +12,7 @@ import AdminMoreMenuScreen from "../screens/admin/AdminMoreMenuScreen";
 import InvoiceScreen from "../screens/admin/InvoiceScreen";
 import InvoiceDetailScreen from "../screens/admin/InvoiceDetailScreen";
 import ManageClinicsScreen from "../screens/admin/ManageClinicsScreen";
+import ManageStaffScreen from "../screens/admin/ManageStaffScreen";
 import GalleryScreen from "../screens/admin/GalleryScreen";
 import BlogScreen from "../screens/admin/BlogScreen";
 import CatalogScreen from "../screens/admin/CatalogScreen";
@@ -24,6 +25,7 @@ import NotificationsScreen from "../screens/admin/NotificationsScreen";
 import OrderDetailScreen from "../screens/admin/OrderDetailScreen";
 import NotificationBell from "../components/NotificationBell";
 import { useRegisterPushToken } from "../hooks/useRegisterPushToken";
+import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/colors";
 
 const TAB_ICONS = {
@@ -40,6 +42,8 @@ const TAB_ICONS = {
 const Tab = createBottomTabNavigator();
 const MoreStack = createNativeStackNavigator();
 
+// Full "More" section - admin only. Covers billing, clinic management,
+// staff management, and content tools.
 function AdminMoreStackNavigator() {
   return (
     <MoreStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.dark }, headerTintColor: colors.white }}>
@@ -51,6 +55,7 @@ function AdminMoreStackNavigator() {
         options={({ route }) => ({ title: route.params?.clinicName || "Invoice" })}
       />
       <MoreStack.Screen name="ManageClinics" component={ManageClinicsScreen} options={{ title: "Manage Clinics" }} />
+      <MoreStack.Screen name="ManageStaff" component={ManageStaffScreen} options={{ title: "Lab Staff" }} />
       <MoreStack.Screen name="Gallery" component={GalleryScreen} />
       <MoreStack.Screen name="Blog" component={BlogScreen} />
       <MoreStack.Screen name="Catalog" component={CatalogScreen} options={{ title: "Services & Pricing" }} />
@@ -67,8 +72,25 @@ function AdminMoreStackNavigator() {
   );
 }
 
+// Restricted "More" section for lab staff - just their own account
+// settings, nothing about billing, clinics, or content management.
+// Reuses AdminAccountSettingScreen directly as the landing screen since
+// there's no other admin sections for staff to pick from.
+function StaffMoreStackNavigator() {
+  return (
+    <MoreStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.dark }, headerTintColor: colors.white }}>
+      <MoreStack.Screen name="AdminMoreMenu" component={AdminAccountSettingScreen} options={{ title: "Account" }} />
+      <MoreStack.Screen name="EditProfile" component={AdminEditProfileScreen} options={{ title: "Edit Profile" }} />
+      <MoreStack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: "Change Password" }} />
+      <MoreStack.Screen name="Security" component={SecurityScreen} options={{ title: "Security" }} />
+    </MoreStack.Navigator>
+  );
+}
+
 export default function AdminTabNavigator() {
   useRegisterPushToken();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
 
   return (
     <Tab.Navigator
@@ -83,9 +105,13 @@ export default function AdminTabNavigator() {
     >
       <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
       <Tab.Screen name="Orders" component={OrdersScreen} />
-      <Tab.Screen name="TrackOrders" component={TrackOrdersScreen} options={{ title: "Track Orders" }} />
+      {isAdmin && <Tab.Screen name="TrackOrders" component={TrackOrdersScreen} options={{ title: "Track Orders" }} />}
       <Tab.Screen name="ForLab" component={ForLabScreen} options={{ title: "For Lab" }} />
-      <Tab.Screen name="AdminMore" component={AdminMoreStackNavigator} options={{ title: "More", headerShown: false }} />
+      <Tab.Screen
+        name="AdminMore"
+        component={isAdmin ? AdminMoreStackNavigator : StaffMoreStackNavigator}
+        options={{ title: "More", headerShown: false }}
+      />
       <Tab.Screen
         name="Notifications"
         component={NotificationsScreen}

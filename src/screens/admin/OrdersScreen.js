@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SectionList, ActivityIndicator, RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../api/client";
 import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
@@ -9,6 +9,34 @@ function isToday(dateString) {
   const d = new Date(dateString);
   const now = new Date();
   return d.toDateString() === now.toDateString();
+}
+
+function sectionTitleFor(dateString) {
+  const date = new Date(dateString);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+}
+
+// Orders already arrive sorted newest-first from the backend - group
+// consecutive same-day orders under one date header rather than repeating
+// the date on every row.
+function groupByDate(orders) {
+  const sections = [];
+  orders.forEach((order) => {
+    const dateKey = new Date(order.createdAt).toDateString();
+    const lastSection = sections[sections.length - 1];
+    if (lastSection && lastSection.dateKey === dateKey) {
+      lastSection.data.push(order);
+    } else {
+      sections.push({ dateKey, title: sectionTitleFor(order.createdAt), data: [order] });
+    }
+  });
+  return sections;
 }
 
 export default function OrdersScreen({ navigation }) {
@@ -58,6 +86,7 @@ export default function OrdersScreen({ navigation }) {
   }
 
   const todayCount = orders.filter((o) => isToday(o.createdAt)).length;
+  const sections = groupByDate(orders);
 
   return (
     <View style={styles.container}>
@@ -109,22 +138,27 @@ export default function OrdersScreen({ navigation }) {
       {loading ? (
         <ActivityIndicator color={colors.dark} size="large" style={{ marginTop: spacing.xl }} />
       ) : (
-        <FlatList
-          data={orders}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No orders yet.</Text>}
+          stickySectionHeadersEnabled
+          renderSectionHeader={({ section }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>{section.title}</Text>
+            </View>
+          )}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.row} onPress={() => navigation.navigate("OrderDetail", { caseId: item.id })}>
               <View style={styles.rowTop}>
-                <View style={styles.rowDateRow}>
+                <View style={styles.rowClinicRow}>
                   <View style={[styles.pickupDot, { backgroundColor: item.pickedUpAt ? colors.success : colors.danger }]} />
-                  <Text style={styles.rowDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                  <Text style={styles.rowClinic}>{item.clinic?.name}</Text>
                 </View>
                 <StatusBadge status={item.deliveryStatus} />
               </View>
-              <Text style={styles.rowClinic}>{item.clinic?.name}</Text>
               <Text style={styles.rowTitle}>
                 {item.patient?.fullName} · {item.service?.name}
               </Text>
@@ -177,12 +211,22 @@ const styles = StyleSheet.create({
   clearButtonText: { color: colors.text, fontWeight: "600", fontSize: 13 },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
   emptyText: { textAlign: "center", color: colors.textMuted, marginTop: spacing.xl },
+  sectionHeader: {
+    backgroundColor: colors.offWhite,
+    marginHorizontal: -spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  },
+  sectionHeaderText: { fontSize: 13, fontWeight: "800", color: colors.text, textTransform: "uppercase", letterSpacing: 0.5 },
   row: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
   rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  rowDateRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  rowClinicRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   pickupDot: { width: 8, height: 8, borderRadius: 4 },
-  rowDate: { fontSize: 12, color: colors.textMuted },
-  rowClinic: { fontSize: 12, color: colors.textMuted, fontWeight: "600", marginBottom: 2 },
+  rowClinic: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
   rowTitle: { fontSize: 15, fontWeight: "600", color: colors.text, marginBottom: 6 },
   rowBottom: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   rowCode: { fontSize: 12, color: colors.textMuted },
