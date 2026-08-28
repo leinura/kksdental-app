@@ -22,12 +22,19 @@ const COLUMNS = 2;
 const GAP = 10;
 const TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - GAP) / COLUMNS;
 
+const PLACEMENTS = [
+  { value: "HERO", label: "Top Carousel" },
+  { value: "SHOP", label: "Shop Section" },
+];
+
 export default function AdsScreen() {
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filterPlacement, setFilterPlacement] = useState("HERO");
   const [pendingImage, setPendingImage] = useState(null); // { uri, base64 }
   const [link, setLink] = useState("");
+  const [placement, setPlacement] = useState("HERO");
   const [uploading, setUploading] = useState(false);
   const [processingPhoto, setProcessingPhoto] = useState(false);
 
@@ -70,6 +77,7 @@ export default function AdsScreen() {
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
       setPendingImage({ uri: manipulated.uri, base64: manipulated.base64 });
+      setPlacement(filterPlacement);
     } catch (err) {
       Alert.alert("Couldn't process photo", "Please try again.");
     } finally {
@@ -82,7 +90,7 @@ export default function AdsScreen() {
     setUploading(true);
     try {
       const imageData = `data:image/jpeg;base64,${pendingImage.base64}`;
-      await apiClient.post("/ads", { imageData, link: link.trim() || null });
+      await apiClient.post("/ads", { imageData, link: link.trim() || null, placement });
       setPendingImage(null);
       setLink("");
       loadAds();
@@ -94,7 +102,7 @@ export default function AdsScreen() {
   }
 
   function handleDelete(ad) {
-    Alert.alert("Delete Ad", "Remove this ad from the carousel?", [
+    Alert.alert("Delete Ad", "Remove this ad?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -111,6 +119,8 @@ export default function AdsScreen() {
     ]);
   }
 
+  const filteredAds = ads.filter((ad) => ad.placement === filterPlacement);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -123,14 +133,43 @@ export default function AdsScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      <View style={styles.placementTabs}>
+        {PLACEMENTS.map((p) => (
+          <TouchableOpacity
+            key={p.value}
+            style={[styles.placementTab, filterPlacement === p.value && styles.placementTabActive]}
+            onPress={() => setFilterPlacement(p.value)}
+          >
+            <Text style={[styles.placementTabText, filterPlacement === p.value && styles.placementTabTextActive]}>
+              {p.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <Text style={styles.helperText}>
-        These photos auto-slide on the client's Home screen, above Lab Introduction.
+        {filterPlacement === "HERO"
+          ? "These auto-slide at the very top of the client's Home screen."
+          : "These show as a grid below Lab Introduction on the client's Home screen."}
       </Text>
 
       {pendingImage && (
         <View style={styles.pendingCard}>
           <Image source={{ uri: pendingImage.uri }} style={styles.pendingImage} />
           <View style={{ flex: 1 }}>
+            <View style={styles.pendingPlacementRow}>
+              {PLACEMENTS.map((p) => (
+                <TouchableOpacity
+                  key={p.value}
+                  style={[styles.pendingPill, placement === p.value && styles.pendingPillActive]}
+                  onPress={() => setPlacement(p.value)}
+                >
+                  <Text style={[styles.pendingPillText, placement === p.value && styles.pendingPillTextActive]}>
+                    {p.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <TextInput
               style={styles.linkInput}
               value={link}
@@ -159,13 +198,13 @@ export default function AdsScreen() {
         <ActivityIndicator color={colors.dark} size="large" style={{ marginTop: spacing.xl }} />
       ) : (
         <FlatList
-          data={ads}
+          data={filteredAds}
           keyExtractor={(item) => item.id}
           numColumns={COLUMNS}
           contentContainerStyle={styles.grid}
           columnWrapperStyle={{ gap: GAP }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-          ListEmptyComponent={<Text style={styles.emptyText}>No ads yet - tap "Add Ad" to upload the first one.</Text>}
+          ListEmptyComponent={<Text style={styles.emptyText}>No ads here yet - tap "Add Ad" to upload one.</Text>}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.tile} onLongPress={() => handleDelete(item)}>
               <Image source={{ uri: item.imageData }} style={styles.tileImage} />
@@ -188,9 +227,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: spacing.lg, paddingBottom: 0 },
   heading: { fontSize: 20, fontWeight: "700", color: colors.text },
-  helperText: { fontSize: 12, color: colors.textMuted, paddingHorizontal: spacing.lg, marginTop: 4, marginBottom: spacing.sm },
   addButton: { backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
   addButtonText: { color: colors.white, fontWeight: "700", fontSize: 13 },
+  placementTabs: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: spacing.md },
+  placementTab: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingVertical: 8, alignItems: "center" },
+  placementTabActive: { backgroundColor: colors.dark, borderColor: colors.dark },
+  placementTabText: { fontSize: 12, fontWeight: "600", color: colors.text },
+  placementTabTextActive: { color: colors.white },
+  helperText: { fontSize: 12, color: colors.textMuted, paddingHorizontal: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.sm },
   pendingCard: {
     flexDirection: "row",
     gap: spacing.sm,
@@ -201,6 +245,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
   },
   pendingImage: { width: 70, height: 70, borderRadius: radius.input },
+  pendingPlacementRow: { flexDirection: "row", gap: 6, marginBottom: spacing.xs },
+  pendingPill: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 4 },
+  pendingPillActive: { backgroundColor: colors.dark, borderColor: colors.dark },
+  pendingPillText: { fontSize: 10, fontWeight: "600", color: colors.text },
+  pendingPillTextActive: { color: colors.white },
   linkInput: {
     borderWidth: 1,
     borderColor: colors.border,

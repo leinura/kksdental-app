@@ -1,33 +1,45 @@
-import React, { useCallback, useRef, useState } from "react";
-import { View, Text, Image, FlatList, StyleSheet, Dimensions, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import React, { useCallback, useState } from "react";
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  Linking,
+  StyleSheet,
+  ScrollView,
+  Dimensions,
+  RefreshControl,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Video, ResizeMode } from "expo-av";
 import apiClient from "../../api/client";
 import AdCarousel from "../../components/AdCarousel";
+import EventCarousel from "../../components/EventCarousel";
 import { colors, spacing, radius } from "../../theme/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CAROUSEL_HEIGHT = 200;
-
-// Shown only if the lab hasn't uploaded any gallery photos yet.
-const FALLBACK_SLIDES = [
-  { id: "1", label: "Photo Gallery Coming Soon", color: colors.dark },
-  { id: "2", label: "Lab Work Showcase", color: colors.lavender },
-  { id: "3", label: "Case Highlights", color: "#1D9E75" },
-];
+const SHOP_COLUMNS = 2;
+const SHOP_GAP = 10;
+const SHOP_TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - SHOP_GAP) / SHOP_COLUMNS;
 
 export default function ClientHomeScreen() {
-  const [photos, setPhotos] = useState(null);
-  const [ads, setAds] = useState([]);
+  const [heroAds, setHeroAds] = useState([]);
+  const [shopAds, setShopAds] = useState([]);
+  const [events, setEvents] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const [photosRes, adsRes] = await Promise.all([apiClient.get("/gallery"), apiClient.get("/ads")]);
-      setPhotos(photosRes.data);
-      setAds(adsRes.data);
+      const [heroRes, shopRes, eventsRes] = await Promise.all([
+        apiClient.get("/ads", { params: { placement: "HERO" } }),
+        apiClient.get("/ads", { params: { placement: "SHOP" } }),
+        apiClient.get("/events"),
+      ]);
+      setHeroAds(heroRes.data);
+      setShopAds(shopRes.data);
+      setEvents(eventsRes.data);
     } catch (err) {
-      setPhotos((prev) => prev ?? []);
+      // keep whatever was already loaded on a transient failure
     }
   }, []);
 
@@ -43,25 +55,18 @@ export default function ClientHomeScreen() {
     setRefreshing(false);
   }
 
-  const slides =
-    photos && photos.length > 0
-      ? photos.map((p) => ({ id: p.id, image: { uri: p.imageData }, caption: p.caption }))
-      : FALLBACK_SLIDES;
+  function handleShopAdPress(ad) {
+    if (ad.link) {
+      Linking.openURL(ad.link).catch(() => {});
+    }
+  }
 
   return (
     <ScrollView
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
     >
-      {photos === null ? (
-        <View style={[styles.slide, { alignItems: "center", justifyContent: "center" }]}>
-          <ActivityIndicator color={colors.dark} />
-        </View>
-      ) : (
-        <PhotoCarousel slides={slides} />
-      )}
-
-      <AdCarousel ads={ads} />
+      <AdCarousel ads={heroAds} />
 
       <View style={styles.videoSection}>
         <Text style={styles.sectionLabel}>Lab Introduction</Text>
@@ -70,9 +75,36 @@ export default function ClientHomeScreen() {
           style={styles.video}
           resizeMode={ResizeMode.COVER}
           useNativeControls
-          isLooping={false}
+          shouldPlay
+          isMuted
+          isLooping
         />
       </View>
+
+      {shopAds.length > 0 && (
+        <View style={styles.shopSection}>
+          <Text style={styles.sectionLabel}>Featured Categories</Text>
+          <View style={styles.shopGrid}>
+            {shopAds.map((ad) => (
+              <TouchableOpacity
+                key={ad.id}
+                style={styles.shopTile}
+                activeOpacity={ad.link ? 0.85 : 1}
+                onPress={() => handleShopAdPress(ad)}
+              >
+                <Image source={{ uri: ad.imageData }} style={styles.shopTileImage} resizeMode="cover" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {events.length > 0 && (
+        <View style={styles.eventsSection}>
+          <Text style={styles.sectionLabel}>Courses & Events</Text>
+          <EventCarousel events={events} />
+        </View>
+      )}
 
       <View style={styles.banner}>
         <Text style={styles.bannerText}>Welcome To{"\n"}KKSDENTAL Lab.</Text>
@@ -85,80 +117,29 @@ export default function ClientHomeScreen() {
   );
 }
 
-function PhotoCarousel({ slides }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef(null);
-
-  function handleScroll(event) {
-    const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-    setActiveIndex(index);
-  }
-
-  return (
-    <View>
-      <FlatList
-        ref={flatListRef}
-        data={slides}
-        keyExtractor={(item) => item.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        renderItem={({ item }) =>
-          item.image ? (
-            <View style={{ width: SCREEN_WIDTH }}>
-              <Image source={item.image} style={styles.slide} resizeMode="cover" />
-              {item.caption ? (
-                <View style={styles.captionOverlay}>
-                  <Text style={styles.captionText}>{item.caption}</Text>
-                </View>
-              ) : null}
-            </View>
-          ) : (
-            <View style={[styles.slide, styles.placeholderSlide, { width: SCREEN_WIDTH, backgroundColor: item.color }]}>
-              <Text style={styles.placeholderText}>{item.label}</Text>
-            </View>
-          )
-        }
-      />
-      <View style={styles.dots}>
-        {slides.map((slide, index) => (
-          <View key={slide.id} style={[styles.dot, index === activeIndex && styles.dotActive]} />
-        ))}
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
-  slide: { height: CAROUSEL_HEIGHT, width: "100%" },
-  placeholderSlide: { alignItems: "center", justifyContent: "center" },
-  placeholderText: { color: colors.white, fontSize: 14, fontWeight: "600" },
-  captionOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(10,10,10,0.55)",
-    paddingVertical: 6,
-    paddingHorizontal: spacing.md,
-  },
-  captionText: { color: colors.white, fontSize: 12, fontWeight: "600" },
-  dots: { flexDirection: "row", justifyContent: "center", marginTop: spacing.sm, gap: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
-  dotActive: { backgroundColor: colors.dark, width: 18 },
   videoSection: { padding: spacing.lg },
   sectionLabel: { fontSize: 13, fontWeight: "700", color: colors.textMuted, marginBottom: spacing.sm },
   video: { width: "100%", height: 200, borderRadius: radius.card, backgroundColor: colors.dark },
+  shopSection: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  shopGrid: { flexDirection: "row", flexWrap: "wrap", gap: SHOP_GAP },
+  shopTile: {
+    width: SHOP_TILE_SIZE,
+    height: SHOP_TILE_SIZE,
+    borderRadius: radius.card,
+    overflow: "hidden",
+    backgroundColor: colors.offWhite,
+  },
+  shopTileImage: { width: "100%", height: "100%" },
+  eventsSection: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
   banner: {
     backgroundColor: colors.dark,
     minHeight: 180,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
   },
   bannerText: { color: colors.white, fontSize: 26, fontWeight: "800", textAlign: "center", lineHeight: 32 },
   footer: { backgroundColor: colors.dark, padding: spacing.lg, paddingBottom: spacing.xl },
