@@ -10,6 +10,13 @@ import { colors, spacing, radius } from "../theme/colors";
 // renders the fields and reports changes back up. Keeping it controlled
 // (rather than owning its own state) means Registration and Billing can
 // both reset/prefill it however they need.
+//
+// A selected Service Type can be priced in one of three ways, decided by
+// its own configuration (set up in Catalog > Services):
+//   1. Legacy - single global Warranty list, original two-level system.
+//      Kept fully working for anything not migrated to the newer structure.
+//   2. Sub-Type + that Service Type's own scoped Warranty list (or none).
+//   3. Step-based - pick one or more priced Steps, total is their sum.
 export default function CaseDetailsFields({
   services,
   warranties,
@@ -21,6 +28,12 @@ export default function CaseDetailsFields({
   setServiceTypeId,
   warrantyId,
   setWarrantyId,
+  serviceSubtypeId,
+  setServiceSubtypeId,
+  serviceTypeWarrantyId,
+  setServiceTypeWarrantyId,
+  stepIds,
+  setStepIds,
   toothShadeId,
   setToothShadeId,
   toothNumbers,
@@ -38,26 +51,68 @@ export default function CaseDetailsFields({
   const quantity = quantityOverride ?? (toothNumbers.length || 1);
   const [processingPhoto, setProcessingPhoto] = useState(false);
 
-  // Warranty only matters for these specific Crown service types - everything
-  // else (other services, or Crown/METAL) skips the warranty question and is
-  // priced under the admin-configured "No Warranties" entry automatically.
+  const usesSteps = !!selectedServiceType?.usesSteps;
+  const hasSubtypes = !usesSteps && (selectedServiceType?.subtypes?.length || 0) > 0;
+  const isLegacy = !usesSteps && !hasSubtypes;
+
+  // Legacy path only: Warranty only matters for these specific Crown service
+  // types - everything else skips the warranty question and is priced under
+  // the admin-configured "No Warranties" entry automatically. Kept exactly
+  // as before for any Service Type not migrated to Sub-Types/Steps.
   const WARRANTY_ELIGIBLE_TYPES = ["zirconia", "pfm", "esthetic zirconia"];
   const needsWarrantyChoice =
+    isLegacy &&
     selectedService?.name?.trim().toLowerCase() === "crown" &&
     WARRANTY_ELIGIBLE_TYPES.includes(selectedServiceType?.name?.trim().toLowerCase() || "");
   const noWarrantyEntry = warranties.find((w) => w.label?.trim().toLowerCase() === "no warranties");
 
   useEffect(() => {
-    if (!needsWarrantyChoice && noWarrantyEntry && warrantyId !== noWarrantyEntry.id) {
+    if (isLegacy && !needsWarrantyChoice && noWarrantyEntry && warrantyId !== noWarrantyEntry.id) {
       setWarrantyId(noWarrantyEntry.id);
     }
-  }, [needsWarrantyChoice, noWarrantyEntry?.id]);
+  }, [isLegacy, needsWarrantyChoice, noWarrantyEntry?.id]);
 
-  const matchedPrice = priceList.find(
-    (p) => p.serviceId === serviceId && p.serviceTypeId === serviceTypeId && p.warrantyId === warrantyId
-  );
-  const unitPrice = matchedPrice ? Number(matchedPrice.price) : null;
-  const totalPrice = unitPrice != null ? unitPrice * quantity : null;
+  // Reset the OTHER paths' selections whenever the Service Type changes, so
+  // a leftover Sub-Type/Step selection from a previous pick never lingers.
+  useEffect(() => {
+    setServiceSubtypeId(null);
+    setServiceTypeWarrantyId(null);
+    setStepIds([]);
+  }, [serviceTypeId]);
+
+  const selectedSubtype = selectedServiceType?.subtypes?.find((s) => s.id === serviceSubtypeId);
+  const typeWarrantyOptions = selectedServiceType?.typeWarranties || [];
+  const needsTypeWarrantyChoice = hasSubtypes && typeWarrantyOptions.length > 0;
+
+  // --- Price calculation, one branch per pricing path ---
+  let unitPrice = null;
+  let totalPrice = null;
+
+  if (usesSteps) {
+    const selectedSteps = (selectedServiceType.steps || []).filter((s) => stepIds.includes(s.id));
+    if (selectedSteps.length > 0) {
+      totalPrice = selectedSteps.reduce((sum, s) => sum + Number(s.price), 0);
+      unitPrice = totalPrice;
+    }
+  } else if (hasSubtypes) {
+    if (selectedSubtype) {
+      const entry = (selectedSubtype.priceEntries || []).find(
+        (e) => (e.serviceTypeWarrantyId || null) === (serviceTypeWarrantyId || null)
+      );
+      if (entry) {
+        unitPrice = Number(entry.price);
+        totalPrice = unitPrice * quantity;
+      }
+    }
+  } else {
+    const matchedPrice = priceList.find(
+      (p) => p.serviceId === serviceId && p.serviceTypeId === serviceTypeId && p.warrantyId === warrantyId
+    );
+    if (matchedPrice) {
+      unitPrice = Number(matchedPrice.price);
+      totalPrice = unitPrice * quantity;
+    }
+  }
 
   async function addPhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -94,6 +149,14 @@ export default function CaseDetailsFields({
     setPhotos(photos.filter((_, i) => i !== index));
   }
 
+  function toggleStep(stepId) {
+    if (stepIds.includes(stepId)) {
+      setStepIds(stepIds.filter((id) => id !== stepId));
+    } else {
+      setStepIds([...stepIds, stepId]);
+    }
+  }
+
   return (
     <View>
       <Field label="Services *">
@@ -117,6 +180,26 @@ export default function CaseDetailsFields({
         </Field>
       )}
 
+      {hasSubtypes && (
+        <Field label="Sub-Type *">
+          <PillSelect
+            options={selectedServiceType.subtypes.map((s) => ({ label: s.name, value: s.id }))}
+            value={serviceSubtypeId}
+            onSelect={setServiceSubtypeId}
+          />
+        </Field>
+      )}
+
+      {needsTypeWarrantyChoice && (
+        <Field label="Warranty">
+          <PillSelect
+            options={typeWarrantyOptions.map((w) => ({ label: w.label, value: w.id }))}
+            value={serviceTypeWarrantyId}
+            onSelect={setServiceTypeWarrantyId}
+          />
+        </Field>
+      )}
+
       {needsWarrantyChoice && (
         <Field label="Warranty">
           <PillSelect
@@ -124,6 +207,29 @@ export default function CaseDetailsFields({
             value={warrantyId}
             onSelect={setWarrantyId}
           />
+        </Field>
+      )}
+
+      {usesSteps && (
+        <Field label="Steps *">
+          {(selectedServiceType.steps || []).length === 0 ? (
+            <Text style={styles.emptyStepsText}>No steps configured for this service type yet.</Text>
+          ) : (
+            selectedServiceType.steps.map((step) => {
+              const isSelected = stepIds.includes(step.id);
+              return (
+                <TouchableOpacity
+                  key={step.id}
+                  style={[styles.stepRow, isSelected && styles.stepRowSelected]}
+                  onPress={() => toggleStep(step.id)}
+                >
+                  <Text style={styles.stepCheckbox}>{isSelected ? "☑" : "☐"}</Text>
+                  <Text style={styles.stepName}>{step.name}</Text>
+                  <Text style={styles.stepPrice}>₹{Number(step.price).toFixed(2)}</Text>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </Field>
       )}
 
@@ -161,7 +267,7 @@ export default function CaseDetailsFields({
       <Field label="Price">
         <View style={styles.priceBox}>
           <Text style={styles.priceText}>
-            {totalPrice != null ? `₹${totalPrice.toFixed(2)}` : "Select service, type & warranty to see price"}
+            {totalPrice != null ? `₹${totalPrice.toFixed(2)}` : "Select the options above to see price"}
           </Text>
         </View>
       </Field>
@@ -267,4 +373,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.offWhite,
   },
   addPhotoText: { fontSize: 28, color: colors.textMuted, fontWeight: "300" },
+  emptyStepsText: { fontSize: 13, color: colors.textMuted, fontStyle: "italic" },
+  stepRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.white,
+  },
+  stepRowSelected: { borderColor: colors.dark, backgroundColor: colors.offWhite },
+  stepCheckbox: { fontSize: 18, color: colors.text },
+  stepName: { flex: 1, fontSize: 14, color: colors.text },
+  stepPrice: { fontSize: 14, fontWeight: "700", color: colors.text },
 });

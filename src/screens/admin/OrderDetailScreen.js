@@ -114,7 +114,14 @@ export default function OrderDetailScreen({ route }) {
         <Text style={styles.sectionLabel}>Service Details</Text>
         <DetailRow label="Service" value={order.service?.name} />
         <DetailRow label="Service Type" value={order.serviceType?.name} />
-        <DetailRow label="Warranty" value={order.warranty?.label || "No warranty"} />
+        {order.serviceSubtype ? (
+          <>
+            <DetailRow label="Sub-Type" value={order.serviceSubtype.name} />
+            <DetailRow label="Warranty" value={order.serviceTypeWarranty?.label || "No warranty"} />
+          </>
+        ) : order.caseSteps?.length > 0 ? null : (
+          <DetailRow label="Warranty" value={order.warranty?.label || "No warranty"} />
+        )}
         <DetailRow label="Tooth Shade" value={order.toothShade?.code || "-"} />
         <DetailRow
           label="Tooth Number(s)"
@@ -122,6 +129,15 @@ export default function OrderDetailScreen({ route }) {
         />
         <DetailRow label="Quantity" value={String(order.quantity)} />
       </View>
+
+      {order.caseSteps?.length > 0 && (
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Steps</Text>
+          {order.caseSteps.map((step) => (
+            <DetailRow key={step.id} label={step.name} value={`₹${Number(step.price).toFixed(2)}`} />
+          ))}
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.sectionLabel}>Price</Text>

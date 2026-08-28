@@ -28,6 +28,9 @@ export default function PatientRegistrationScreen() {
   const [serviceId, setServiceId] = useState(null);
   const [serviceTypeId, setServiceTypeId] = useState(null);
   const [warrantyId, setWarrantyId] = useState(null);
+  const [serviceSubtypeId, setServiceSubtypeId] = useState(null);
+  const [serviceTypeWarrantyId, setServiceTypeWarrantyId] = useState(null);
+  const [stepIds, setStepIds] = useState([]);
   const [toothShadeId, setToothShadeId] = useState(null);
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
@@ -56,6 +59,9 @@ export default function PatientRegistrationScreen() {
     setServiceId(null);
     setServiceTypeId(null);
     setWarrantyId(null);
+    setServiceSubtypeId(null);
+    setServiceTypeWarrantyId(null);
+    setStepIds([]);
     setToothShadeId(null);
     setToothNumbers([]);
     setQuantityOverride(null);
@@ -66,7 +72,7 @@ export default function PatientRegistrationScreen() {
   }
 
   function handleReview() {
-    if (!fullName || !gender || !age || !serviceId || !serviceTypeId || !warrantyId) {
+    if (!fullName || !gender || !age || !serviceId || !serviceTypeId) {
       Alert.alert("Missing information", "Please fill in all required fields.");
       return;
     }
@@ -85,6 +91,9 @@ export default function PatientRegistrationScreen() {
         serviceId,
         serviceTypeId,
         warrantyId,
+        serviceSubtypeId,
+        serviceTypeWarrantyId,
+        stepIds,
         toothShadeId,
         toothNumbers,
         quantity: quantityOverride,
@@ -146,14 +155,32 @@ export default function PatientRegistrationScreen() {
   // --- Review summary values ---
   const selectedService = services.find((s) => s.id === serviceId);
   const selectedServiceType = selectedService?.serviceTypes?.find((t) => t.id === serviceTypeId);
+  const usesSteps = !!selectedServiceType?.usesSteps;
+  const hasSubtypes = !usesSteps && (selectedServiceType?.subtypes?.length || 0) > 0;
+
   const selectedWarranty = warranties.find((w) => w.id === warrantyId);
+  const selectedSubtype = selectedServiceType?.subtypes?.find((s) => s.id === serviceSubtypeId);
+  const selectedTypeWarranty = selectedServiceType?.typeWarranties?.find((w) => w.id === serviceTypeWarrantyId);
+  const selectedSteps = (selectedServiceType?.steps || []).filter((s) => stepIds.includes(s.id));
   const selectedShade = toothShades.find((s) => s.id === toothShadeId);
   const quantity = quantityOverride ?? (toothNumbers.length || 1);
-  const matchedPrice = priceList.find(
-    (p) => p.serviceId === serviceId && p.serviceTypeId === serviceTypeId && p.warrantyId === warrantyId
-  );
-  const unitPrice = matchedPrice ? Number(matchedPrice.price) : null;
-  const totalPrice = unitPrice != null ? unitPrice * quantity : null;
+
+  let totalPrice = null;
+  if (usesSteps) {
+    if (selectedSteps.length > 0) totalPrice = selectedSteps.reduce((sum, s) => sum + Number(s.price), 0);
+  } else if (hasSubtypes) {
+    if (selectedSubtype) {
+      const entry = (selectedSubtype.priceEntries || []).find(
+        (e) => (e.serviceTypeWarrantyId || null) === (serviceTypeWarrantyId || null)
+      );
+      if (entry) totalPrice = Number(entry.price) * quantity;
+    }
+  } else {
+    const matchedPrice = priceList.find(
+      (p) => p.serviceId === serviceId && p.serviceTypeId === serviceTypeId && p.warrantyId === warrantyId
+    );
+    if (matchedPrice) totalPrice = Number(matchedPrice.price) * quantity;
+  }
 
   if (step === "review" || step === "choosing") {
     return (
@@ -167,7 +194,21 @@ export default function PatientRegistrationScreen() {
             <SummaryRow label="Age" value={age} />
             <SummaryRow label="Service" value={selectedService?.name} />
             <SummaryRow label="Service Type" value={selectedServiceType?.name} />
-            <SummaryRow label="Warranty" value={selectedWarranty?.label || "No warranty"} />
+
+            {usesSteps ? (
+              <SummaryRow
+                label="Steps"
+                value={selectedSteps.length > 0 ? selectedSteps.map((s) => s.name).join(", ") : "-"}
+              />
+            ) : hasSubtypes ? (
+              <>
+                <SummaryRow label="Sub-Type" value={selectedSubtype?.name || "-"} />
+                <SummaryRow label="Warranty" value={selectedTypeWarranty?.label || "No warranty"} />
+              </>
+            ) : (
+              <SummaryRow label="Warranty" value={selectedWarranty?.label || "No warranty"} />
+            )}
+
             <SummaryRow label="Tooth Shade" value={selectedShade?.code || "-"} />
             <SummaryRow label="Tooth Number(s)" value={toothNumbers.length > 0 ? toothNumbers.join(", ") : "-"} />
             <SummaryRow label="Quantity" value={String(quantity)} />
@@ -187,20 +228,15 @@ export default function PatientRegistrationScreen() {
             </View>
           )}
 
-          {step === "review" && (
-            <>
-              <TouchableOpacity style={styles.editLink} onPress={() => setStep("form")}>
-                <Text style={styles.editLinkText}>‹ Back to edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmButton} onPress={() => setStep("choosing")}>
-                <Text style={styles.confirmButtonText}>Confirm</Text>
-              </TouchableOpacity>
-            </>
-          )}
-
-          {!justRegistered && step === "choosing" && (
+          {!justRegistered && (
             <TouchableOpacity style={styles.editLink} onPress={() => setStep("form")}>
               <Text style={styles.editLinkText}>‹ Back to edit</Text>
+            </TouchableOpacity>
+          )}
+
+          {step === "review" && (
+            <TouchableOpacity style={styles.confirmButton} onPress={() => setStep("choosing")}>
+              <Text style={styles.confirmButtonText}>Confirm</Text>
             </TouchableOpacity>
           )}
 
@@ -291,6 +327,12 @@ export default function PatientRegistrationScreen() {
         setServiceTypeId={setServiceTypeId}
         warrantyId={warrantyId}
         setWarrantyId={setWarrantyId}
+        serviceSubtypeId={serviceSubtypeId}
+        setServiceSubtypeId={setServiceSubtypeId}
+        serviceTypeWarrantyId={serviceTypeWarrantyId}
+        setServiceTypeWarrantyId={setServiceTypeWarrantyId}
+        stepIds={stepIds}
+        setStepIds={setStepIds}
         toothShadeId={toothShadeId}
         setToothShadeId={setToothShadeId}
         toothNumbers={toothNumbers}

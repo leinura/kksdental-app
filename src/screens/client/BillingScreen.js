@@ -35,6 +35,9 @@ export default function BillingScreen({ navigation, route }) {
   const [serviceId, setServiceId] = useState(null);
   const [serviceTypeId, setServiceTypeId] = useState(null);
   const [warrantyId, setWarrantyId] = useState(null);
+  const [serviceSubtypeId, setServiceSubtypeId] = useState(null);
+  const [serviceTypeWarrantyId, setServiceTypeWarrantyId] = useState(null);
+  const [stepIds, setStepIds] = useState([]);
   const [toothShadeId, setToothShadeId] = useState(null);
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
@@ -106,6 +109,9 @@ export default function BillingScreen({ navigation, route }) {
     setServiceId(null);
     setServiceTypeId(null);
     setWarrantyId(null);
+    setServiceSubtypeId(null);
+    setServiceTypeWarrantyId(null);
+    setStepIds([]);
     setToothShadeId(null);
     setToothNumbers([]);
     setQuantityOverride(null);
@@ -142,8 +148,8 @@ export default function BillingScreen({ navigation, route }) {
   // Cash and UPI both require the lab to confirm receipt afterward. Returns
   // the created case (or null on failure) so callers can react accordingly.
   async function submitOrder() {
-    if (!serviceId || !serviceTypeId || !warrantyId) {
-      Alert.alert("Missing information", "Select a Service, Service Type, and Warranty first.");
+    if (!serviceId || !serviceTypeId) {
+      Alert.alert("Missing information", "Select a Service and Service Type first.");
       return null;
     }
     setSubmitting(true);
@@ -153,6 +159,9 @@ export default function BillingScreen({ navigation, route }) {
         serviceId,
         serviceTypeId,
         warrantyId,
+        serviceSubtypeId,
+        serviceTypeWarrantyId,
+        stepIds,
         toothShadeId,
         toothNumbers,
         quantity: quantityOverride,
@@ -349,6 +358,12 @@ export default function BillingScreen({ navigation, route }) {
           setServiceTypeId={setServiceTypeId}
           warrantyId={warrantyId}
           setWarrantyId={setWarrantyId}
+          serviceSubtypeId={serviceSubtypeId}
+          setServiceSubtypeId={setServiceSubtypeId}
+          serviceTypeWarrantyId={serviceTypeWarrantyId}
+          setServiceTypeWarrantyId={setServiceTypeWarrantyId}
+          stepIds={stepIds}
+          setStepIds={setStepIds}
           toothShadeId={toothShadeId}
           setToothShadeId={setToothShadeId}
           toothNumbers={toothNumbers}
