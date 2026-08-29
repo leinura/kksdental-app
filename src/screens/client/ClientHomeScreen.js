@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   shopGrid: { flexDirection: "row", flexWrap: "wrap", gap: SHOP_GAP },
   shopTile: {
     width: SHOP_TILE_SIZE,
-    height: SHOP_TILE_SIZE,
+    height: SHOP_TILE_SIZE * 1.25,
     borderRadius: radius.card,
     overflow: "hidden",
     backgroundColor: colors.offWhite,

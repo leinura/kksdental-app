@@ -4,7 +4,7 @@ import apiClient from "../../api/client";
 import { STATUS_COLORS, STATUS_LABELS, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
 
-const DELIVERY_STAGES = ["PENDING", "IN_PROGRESS", "COMPLETED"];
+const DELIVERY_STAGES = ["PENDING", "IN_PROGRESS", "COMPLETED", "RETURN_REPEAT"];
 
 export default function TrackOrdersScreen() {
   const [orders, setOrders] = useState([]);
@@ -141,13 +141,13 @@ const styles = StyleSheet.create({
   rowClinic: { fontSize: 12, color: colors.textMuted, fontWeight: "600", marginBottom: 2 },
   rowTitle: { fontSize: 15, fontWeight: "600", color: colors.text, marginBottom: 2 },
   rowCode: { fontSize: 11, color: colors.textMuted, marginBottom: spacing.sm },
-  stageRow: { flexDirection: "row", gap: 6, marginBottom: spacing.sm },
+  stageRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: spacing.sm },
   stagePill: {
-    flex: 1,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.pill,
     paddingVertical: 8,
+    paddingHorizontal: spacing.sm,
     alignItems: "center",
   },
   stageText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },

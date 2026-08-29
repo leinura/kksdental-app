@@ -3,7 +3,7 @@ import { View, Image, FlatList, TouchableOpacity, Linking, StyleSheet, Dimension
 import { colors, spacing } from "../theme/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CAROUSEL_HEIGHT = 160;
+const CAROUSEL_HEIGHT = 200;
 const AUTO_SLIDE_INTERVAL = 3500;
 
 // Auto-advancing ad carousel - unlike the gallery carousel above it (manual

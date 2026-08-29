@@ -1,43 +1,43 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from "react-native";
+import React, { useCallback, useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../api/client";
+import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
-
-const STATUS_COLORS = {
-  PENDING: colors.statusPending,
-  IN_PROGRESS: colors.statusInProgress,
-  COMPLETED: colors.statusCompleted,
-};
-
-const STATUS_LABELS = {
-  PENDING: "Pending",
-  IN_PROGRESS: "In Progress",
-  COMPLETED: "Completed",
-};
 
 export default function YourOrderScreen() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [showSearch, setShowSearch] = useState(false);
 
   const loadOrders = useCallback(async (params = {}) => {
-    setLoading(true);
     try {
       const res = await apiClient.get("/cases", { params });
       setOrders(res.data);
     } catch (err) {
       // Keep whatever was already on screen rather than clearing it on a
       // transient network error.
-    } finally {
-      setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      loadOrders().finally(() => setLoading(false));
+    }, [loadOrders])
+  );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    const params = {};
+    if (fromDate) params.from = fromDate;
+    if (toDate) params.to = toDate;
+    await loadOrders(params);
+    setRefreshing(false);
+  }
 
   function handleSearch() {
     const params = {};
@@ -103,6 +103,7 @@ export default function YourOrderScreen() {
           data={orders}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No orders yet.</Text>}
           renderItem={({ item }) => <OrderRow order={item} />}
         />
@@ -124,18 +125,8 @@ function OrderRow({ order }) {
       </Text>
       <View style={styles.rowBottom}>
         <Text style={styles.rowCode}>{order.caseCode}</Text>
-        <Text style={[styles.paymentTag, order.paymentStatus === "PAID" ? styles.paid : styles.unpaid]}>
-          {order.paymentStatus === "PAID" ? "Paid" : "Unpaid"}
-        </Text>
+        <PaymentTag paymentStatus={order.paymentStatus} />
       </View>
-    </View>
-  );
-}
-
-function StatusBadge({ status }) {
-  return (
-    <View style={[styles.badge, { backgroundColor: STATUS_COLORS[status] || colors.statusPending }]}>
-      <Text style={styles.badgeText}>{STATUS_LABELS[status] || status}</Text>
     </View>
   );
 }
@@ -174,12 +165,7 @@ const styles = StyleSheet.create({
   row: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
   rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   rowDate: { fontSize: 12, color: colors.textMuted },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
-  badgeText: { fontSize: 11, fontWeight: "700", color: colors.white },
   rowTitle: { fontSize: 15, fontWeight: "600", color: colors.text, marginBottom: 6 },
   rowBottom: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   rowCode: { fontSize: 12, color: colors.textMuted },
-  paymentTag: { fontSize: 11, fontWeight: "700", paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, overflow: "hidden" },
-  paid: { color: colors.success, backgroundColor: "#E4F5EF" },
-  unpaid: { color: colors.danger, backgroundColor: "#FBEAEA" },
 });

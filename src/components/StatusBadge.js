@@ -6,12 +6,14 @@ export const STATUS_COLORS = {
   PENDING: colors.statusPending,
   IN_PROGRESS: colors.statusInProgress,
   COMPLETED: colors.statusCompleted,
+  RETURN_REPEAT: colors.statusReturnRepeat,
 };
 
 export const STATUS_LABELS = {
   PENDING: "Pending",
   IN_PROGRESS: "In Progress",
   COMPLETED: "Completed",
+  RETURN_REPEAT: "Return/Repeat",
 };
 
 export function StatusBadge({ status }) {
