@@ -80,9 +80,24 @@ export default function CaseDetailsFields({
     setStepIds([]);
   }, [serviceTypeId]);
 
+  // Also clear the warranty choice whenever the Sub-Type changes - each
+  // Sub-Type can have prices for a different subset of the Service Type's
+  // warranty options (e.g. ALL CERAMIC offers 5/10/15 Years, but Inlay only
+  // has a price configured for 5 Years), so a warranty valid for the
+  // previous Sub-Type may not even be selectable for the new one.
+  useEffect(() => {
+    setServiceTypeWarrantyId(null);
+  }, [serviceSubtypeId]);
+
   const selectedSubtype = selectedServiceType?.subtypes?.find((s) => s.id === serviceSubtypeId);
-  const typeWarrantyOptions = selectedServiceType?.typeWarranties || [];
-  const needsTypeWarrantyChoice = hasSubtypes && typeWarrantyOptions.length > 0;
+  // Only offer warranties that actually have a price entry for THIS
+  // Sub-Type, not every warranty the Service Type happens to define.
+  const typeWarrantyOptions = selectedSubtype
+    ? (selectedServiceType?.typeWarranties || []).filter((w) =>
+        (selectedSubtype.priceEntries || []).some((e) => e.serviceTypeWarrantyId === w.id)
+      )
+    : [];
+  const needsTypeWarrantyChoice = hasSubtypes && !!selectedSubtype && typeWarrantyOptions.length > 0;
 
   // --- Price calculation, one branch per pricing path ---
   let unitPrice = null;
