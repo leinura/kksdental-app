@@ -32,6 +32,10 @@ export default function BillingScreen({ navigation, route }) {
   const [patientOrders, setPatientOrders] = useState(null);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
+  // Collapsed by default - the New Order form only shows once this button
+  // is tapped, so Order History stays the focus after picking a patient.
+  const [showNewOrderForm, setShowNewOrderForm] = useState(false);
+
   const [serviceId, setServiceId] = useState(null);
   const [serviceTypeId, setServiceTypeId] = useState(null);
   const [warrantyId, setWarrantyId] = useState(null);
@@ -81,6 +85,7 @@ export default function BillingScreen({ navigation, route }) {
         setToothShadeId(prefill.toothShadeId ?? null);
         setToothNumbers(prefill.toothNumbers ?? []);
         setQuantityOverride(prefill.quantityOverride ?? null);
+        setShowNewOrderForm(true);
       }
       navigation.setParams({ patient: undefined, prefill: undefined });
     }
@@ -117,6 +122,7 @@ export default function BillingScreen({ navigation, route }) {
     setQuantityOverride(null);
     setPhotos([]);
     setComment("");
+    setShowNewOrderForm(false);
   }
 
   async function selectPatient(patient) {
@@ -345,54 +351,67 @@ export default function BillingScreen({ navigation, route }) {
           <Text style={styles.emptyText}>No orders yet.</Text>
         )}
 
-        <Text style={[styles.sectionHeading, { marginTop: spacing.xl }]}>Place a New Order</Text>
-
-        <CaseDetailsFields
-          services={services}
-          warranties={warranties}
-          toothShades={toothShades}
-          priceList={priceList}
-          serviceId={serviceId}
-          setServiceId={setServiceId}
-          serviceTypeId={serviceTypeId}
-          setServiceTypeId={setServiceTypeId}
-          warrantyId={warrantyId}
-          setWarrantyId={setWarrantyId}
-          serviceSubtypeId={serviceSubtypeId}
-          setServiceSubtypeId={setServiceSubtypeId}
-          serviceTypeWarrantyId={serviceTypeWarrantyId}
-          setServiceTypeWarrantyId={setServiceTypeWarrantyId}
-          stepIds={stepIds}
-          setStepIds={setStepIds}
-          toothShadeId={toothShadeId}
-          setToothShadeId={setToothShadeId}
-          toothNumbers={toothNumbers}
-          setToothNumbers={setToothNumbers}
-          quantityOverride={quantityOverride}
-          setQuantityOverride={setQuantityOverride}
-          photos={photos}
-          setPhotos={setPhotos}
-          comment={comment}
-          setComment={setComment}
-        />
-
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.orderButton, styles.orderNowButton]}
-            onPress={handleOrderNow}
-            disabled={submitting}
-          >
-            <Text style={styles.orderButtonText}>Order Now</Text>
+        {!showNewOrderForm ? (
+          <TouchableOpacity style={styles.newOrderButton} onPress={() => setShowNewOrderForm(true)}>
+            <Text style={styles.newOrderButtonText}>+ Place a New Order</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.orderButton, styles.orderPayButton]}
-            onPress={handleOrderAndPay}
-            disabled={submitting}
-          >
-            <Text style={styles.orderButtonText}>Order & Pay</Text>
-          </TouchableOpacity>
-        </View>
-        {submitting && <ActivityIndicator color={colors.dark} style={{ marginTop: spacing.md }} />}
+        ) : (
+          <>
+            <View style={styles.newOrderHeader}>
+              <Text style={styles.sectionHeading}>Place a New Order</Text>
+              <TouchableOpacity onPress={() => setShowNewOrderForm(false)}>
+                <Text style={styles.cancelLink}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+
+            <CaseDetailsFields
+              services={services}
+              warranties={warranties}
+              toothShades={toothShades}
+              priceList={priceList}
+              serviceId={serviceId}
+              setServiceId={setServiceId}
+              serviceTypeId={serviceTypeId}
+              setServiceTypeId={setServiceTypeId}
+              warrantyId={warrantyId}
+              setWarrantyId={setWarrantyId}
+              serviceSubtypeId={serviceSubtypeId}
+              setServiceSubtypeId={setServiceSubtypeId}
+              serviceTypeWarrantyId={serviceTypeWarrantyId}
+              setServiceTypeWarrantyId={setServiceTypeWarrantyId}
+              stepIds={stepIds}
+              setStepIds={setStepIds}
+              toothShadeId={toothShadeId}
+              setToothShadeId={setToothShadeId}
+              toothNumbers={toothNumbers}
+              setToothNumbers={setToothNumbers}
+              quantityOverride={quantityOverride}
+              setQuantityOverride={setQuantityOverride}
+              photos={photos}
+              setPhotos={setPhotos}
+              comment={comment}
+              setComment={setComment}
+            />
+
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.orderButton, styles.orderNowButton]}
+                onPress={handleOrderNow}
+                disabled={submitting}
+              >
+                <Text style={styles.orderButtonText}>Order Now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.orderButton, styles.orderPayButton]}
+                onPress={handleOrderAndPay}
+                disabled={submitting}
+              >
+                <Text style={styles.orderButtonText}>Order & Pay</Text>
+              </TouchableOpacity>
+            </View>
+            {submitting && <ActivityIndicator color={colors.dark} style={{ marginTop: spacing.md }} />}
+          </>
+        )}
       </ScrollView>
 
       <UpiQrModal visible={upiModalVisible} amount={upiAmount} onClose={() => setUpiModalVisible(false)} />
@@ -459,6 +478,21 @@ const styles = StyleSheet.create({
   orderMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   payButton: { backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
   payButtonText: { color: colors.white, fontSize: 11, fontWeight: "700" },
+  newOrderButton: {
+    backgroundColor: colors.dark,
+    borderRadius: radius.pill,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: spacing.xl,
+  },
+  newOrderButtonText: { color: colors.white, fontWeight: "700", fontSize: 15 },
+  newOrderHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: spacing.xl,
+  },
+  cancelLink: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
   buttonRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   orderButton: { flex: 1, borderRadius: radius.pill, paddingVertical: 15, alignItems: "center" },
   orderNowButton: { backgroundColor: colors.dark },
