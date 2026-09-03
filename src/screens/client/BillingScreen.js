@@ -12,14 +12,15 @@ import {
   RefreshControl,
 } from "react-native";
 import apiClient from "../../api/client";
-import { useCatalog } from "../../hooks/useCatalog";
-import CaseDetailsFields from "../../components/CaseDetailsFields";
 import UpiQrModal from "../../components/UpiQrModal";
 import { PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
 
-export default function BillingScreen({ navigation, route }) {
-  const { loading: loadingCatalog, services, warranties, toothShades, priceList, reload } = useCatalog();
+// Billing is now purely for looking up a patient's account and settling
+// unpaid orders - placing NEW orders moved to Your Order > tap an order >
+// "Place a New Order", so it lives alongside that patient's order history
+// instead of duplicating a whole separate flow here.
+export default function BillingScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [allPatients, setAllPatients] = useState([]);
@@ -31,23 +32,6 @@ export default function BillingScreen({ navigation, route }) {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [patientOrders, setPatientOrders] = useState(null);
   const [loadingOrders, setLoadingOrders] = useState(false);
-
-  // Collapsed by default - the New Order form only shows once this button
-  // is tapped, so Order History stays the focus after picking a patient.
-  const [showNewOrderForm, setShowNewOrderForm] = useState(false);
-
-  const [serviceId, setServiceId] = useState(null);
-  const [serviceTypeId, setServiceTypeId] = useState(null);
-  const [warrantyId, setWarrantyId] = useState(null);
-  const [serviceSubtypeId, setServiceSubtypeId] = useState(null);
-  const [serviceTypeWarrantyId, setServiceTypeWarrantyId] = useState(null);
-  const [stepIds, setStepIds] = useState([]);
-  const [toothShadeId, setToothShadeId] = useState(null);
-  const [toothNumbers, setToothNumbers] = useState([]);
-  const [quantityOverride, setQuantityOverride] = useState(null);
-  const [photos, setPhotos] = useState([]); // [{ uri, base64 }]
-  const [comment, setComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   const [upiModalVisible, setUpiModalVisible] = useState(false);
   const [upiAmount, setUpiAmount] = useState(0);
@@ -68,28 +52,9 @@ export default function BillingScreen({ navigation, route }) {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await Promise.all([reload(), loadPatients()]);
+    await loadPatients();
     setRefreshing(false);
   }
-
-  // Coming from "Continue to Billing" style flows in the past - kept for
-  // compatibility in case anything still navigates here with a patient param.
-  useEffect(() => {
-    if (route.params?.patient) {
-      const { patient, prefill } = route.params;
-      selectPatient(patient);
-      if (prefill) {
-        setServiceId(prefill.serviceId ?? null);
-        setServiceTypeId(prefill.serviceTypeId ?? null);
-        setWarrantyId(prefill.warrantyId ?? null);
-        setToothShadeId(prefill.toothShadeId ?? null);
-        setToothNumbers(prefill.toothNumbers ?? []);
-        setQuantityOverride(prefill.quantityOverride ?? null);
-        setShowNewOrderForm(true);
-      }
-      navigation.setParams({ patient: undefined, prefill: undefined });
-    }
-  }, [route.params?.patient]);
 
   async function handleSearch() {
     if (!query.trim()) {
@@ -110,24 +75,8 @@ export default function BillingScreen({ navigation, route }) {
     }
   }
 
-  function resetCaseFields() {
-    setServiceId(null);
-    setServiceTypeId(null);
-    setWarrantyId(null);
-    setServiceSubtypeId(null);
-    setServiceTypeWarrantyId(null);
-    setStepIds([]);
-    setToothShadeId(null);
-    setToothNumbers([]);
-    setQuantityOverride(null);
-    setPhotos([]);
-    setComment("");
-    setShowNewOrderForm(false);
-  }
-
   async function selectPatient(patient) {
     setSelectedPatient(patient);
-    resetCaseFields();
     loadPatientOrders(patient.id);
   }
 
@@ -150,81 +99,6 @@ export default function BillingScreen({ navigation, route }) {
     setSearchResults(null);
   }
 
-  // Every order starts unpaid regardless of how the clinic intends to pay -
-  // Cash and UPI both require the lab to confirm receipt afterward. Returns
-  // the created case (or null on failure) so callers can react accordingly.
-  async function submitOrder() {
-    if (!serviceId || !serviceTypeId) {
-      Alert.alert("Missing information", "Select a Service and Service Type first.");
-      return null;
-    }
-    setSubmitting(true);
-    try {
-      const res = await apiClient.post("/cases", {
-        patientId: selectedPatient.id,
-        serviceId,
-        serviceTypeId,
-        warrantyId,
-        serviceSubtypeId,
-        serviceTypeWarrantyId,
-        stepIds,
-        toothShadeId,
-        toothNumbers,
-        quantity: quantityOverride,
-        photos: photos.map((p) => `data:image/jpeg;base64,${p.base64}`),
-        comment: comment.trim() || undefined,
-      });
-      resetCaseFields();
-      loadPatientOrders(selectedPatient.id);
-      return res.data;
-    } catch (err) {
-      Alert.alert("Order failed", err.response?.data?.error || "Please try again.");
-      return null;
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleOrderNow() {
-    const order = await submitOrder();
-    if (order) {
-      Alert.alert(
-        "Order Placed",
-        `Case ${order.caseCode} created for ${selectedPatient.fullName}. Total: ₹${Number(order.totalPrice).toFixed(2)} (Payment pending)`
-      );
-    }
-  }
-
-  function handleOrderAndPay() {
-    Alert.alert(
-      "How will this be paid?",
-      "The order will be marked paid once the lab confirms receipt - choosing a method here just shows the clinic how to pay.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Cash", onPress: handleCashOrder },
-        { text: "UPI (GPay)", onPress: handleUpiOrder },
-      ]
-    );
-  }
-
-  async function handleCashOrder() {
-    const order = await submitOrder();
-    if (order) {
-      Alert.alert(
-        "Order Placed",
-        `Case ${order.caseCode} created for ${selectedPatient.fullName}. Total: ₹${Number(order.totalPrice).toFixed(2)}\n\nCash payment noted - the lab will confirm once received.`
-      );
-    }
-  }
-
-  async function handleUpiOrder() {
-    const order = await submitOrder();
-    if (order) {
-      setUpiAmount(order.totalPrice);
-      setUpiModalVisible(true);
-    }
-  }
-
   // Reminder for an ALREADY-placed order that's still unpaid - e.g. the
   // first order created automatically during registration. Doesn't change
   // anything server-side, purely shows the clinic how to pay.
@@ -244,14 +118,6 @@ export default function BillingScreen({ navigation, route }) {
         },
       },
     ]);
-  }
-
-  if (loadingCatalog) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator color={colors.dark} size="large" />
-      </View>
-    );
   }
 
   // --- Step 1: browse or search for a patient ---
@@ -308,7 +174,7 @@ export default function BillingScreen({ navigation, route }) {
     );
   }
 
-  // --- Step 2: this patient's order history + place a new order ---
+  // --- Step 2: this patient's order history + settle payment ---
   return (
     <>
       <ScrollView
@@ -350,68 +216,6 @@ export default function BillingScreen({ navigation, route }) {
         ) : (
           <Text style={styles.emptyText}>No orders yet.</Text>
         )}
-
-        {!showNewOrderForm ? (
-          <TouchableOpacity style={styles.newOrderButton} onPress={() => setShowNewOrderForm(true)}>
-            <Text style={styles.newOrderButtonText}>+ Place a New Order</Text>
-          </TouchableOpacity>
-        ) : (
-          <>
-            <View style={styles.newOrderHeader}>
-              <Text style={styles.sectionHeading}>Place a New Order</Text>
-              <TouchableOpacity onPress={() => setShowNewOrderForm(false)}>
-                <Text style={styles.cancelLink}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-
-            <CaseDetailsFields
-              services={services}
-              warranties={warranties}
-              toothShades={toothShades}
-              priceList={priceList}
-              serviceId={serviceId}
-              setServiceId={setServiceId}
-              serviceTypeId={serviceTypeId}
-              setServiceTypeId={setServiceTypeId}
-              warrantyId={warrantyId}
-              setWarrantyId={setWarrantyId}
-              serviceSubtypeId={serviceSubtypeId}
-              setServiceSubtypeId={setServiceSubtypeId}
-              serviceTypeWarrantyId={serviceTypeWarrantyId}
-              setServiceTypeWarrantyId={setServiceTypeWarrantyId}
-              stepIds={stepIds}
-              setStepIds={setStepIds}
-              toothShadeId={toothShadeId}
-              setToothShadeId={setToothShadeId}
-              toothNumbers={toothNumbers}
-              setToothNumbers={setToothNumbers}
-              quantityOverride={quantityOverride}
-              setQuantityOverride={setQuantityOverride}
-              photos={photos}
-              setPhotos={setPhotos}
-              comment={comment}
-              setComment={setComment}
-            />
-
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={[styles.orderButton, styles.orderNowButton]}
-                onPress={handleOrderNow}
-                disabled={submitting}
-              >
-                <Text style={styles.orderButtonText}>Order Now</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.orderButton, styles.orderPayButton]}
-                onPress={handleOrderAndPay}
-                disabled={submitting}
-              >
-                <Text style={styles.orderButtonText}>Order & Pay</Text>
-              </TouchableOpacity>
-            </View>
-            {submitting && <ActivityIndicator color={colors.dark} style={{ marginTop: spacing.md }} />}
-          </>
-        )}
       </ScrollView>
 
       <UpiQrModal visible={upiModalVisible} amount={upiAmount} onClose={() => setUpiModalVisible(false)} />
@@ -422,7 +226,6 @@ export default function BillingScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   content: { padding: spacing.lg },
-  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
   heading: { fontSize: 22, fontWeight: "700", color: colors.text, marginBottom: spacing.xs },
   helperText: { fontSize: 13, color: colors.textMuted, marginBottom: spacing.lg },
   searchRow: { marginBottom: spacing.md },
@@ -478,24 +281,4 @@ const styles = StyleSheet.create({
   orderMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   payButton: { backgroundColor: colors.success, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
   payButtonText: { color: colors.white, fontSize: 11, fontWeight: "700" },
-  newOrderButton: {
-    backgroundColor: colors.dark,
-    borderRadius: radius.pill,
-    paddingVertical: 15,
-    alignItems: "center",
-    marginTop: spacing.xl,
-  },
-  newOrderButtonText: { color: colors.white, fontWeight: "700", fontSize: 15 },
-  newOrderHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: spacing.xl,
-  },
-  cancelLink: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
-  buttonRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
-  orderButton: { flex: 1, borderRadius: radius.pill, paddingVertical: 15, alignItems: "center" },
-  orderNowButton: { backgroundColor: colors.dark },
-  orderPayButton: { backgroundColor: colors.success },
-  orderButtonText: { color: colors.white, fontWeight: "700", fontSize: 14 },
 });
