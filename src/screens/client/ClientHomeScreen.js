@@ -11,7 +11,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { Video, ResizeMode } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 import apiClient from "../../api/client";
 import AdCarousel from "../../components/AdCarousel";
 import EventCarousel from "../../components/EventCarousel";
@@ -27,6 +27,15 @@ export default function ClientHomeScreen() {
   const [shopAds, setShopAds] = useState([]);
   const [events, setEvents] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  // expo-video's API: a player object (created once, configured here) is
+  // handed to <VideoView> to render - replaces expo-av's <Video> component,
+  // which is deprecated and being removed in SDK 54.
+  const player = useVideoPlayer(require("../../../assets/videos/client-home.mp4"), (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -82,15 +91,7 @@ export default function ClientHomeScreen() {
 
         <View style={styles.videoSection}>
           <Text style={styles.sectionLabel}>Lab Introduction</Text>
-          <Video
-            source={require("../../../assets/videos/client-home.mp4")}
-            style={styles.video}
-            resizeMode={ResizeMode.COVER}
-            useNativeControls
-            shouldPlay
-            isMuted
-            isLooping
-          />
+          <VideoView player={player} style={styles.video} contentFit="cover" nativeControls />
         </View>
 
         {shopAds.length > 0 && (

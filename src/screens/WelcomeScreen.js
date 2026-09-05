@@ -1,12 +1,21 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
-import { Video, ResizeMode } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 import ServicesCarousel from "../components/ServicesCarousel";
 import PublicNavHeader from "../components/PublicNavHeader";
 import PublicFooter from "../components/PublicFooter";
 import { colors, spacing, radius } from "../theme/colors";
 
 export default function WelcomeScreen({ navigation }) {
+  // expo-video's API: a player object (created once, configured here) is
+  // handed to <VideoView> to render - replaces expo-av's <Video> component,
+  // which is deprecated and being removed in SDK 54.
+  const player = useVideoPlayer(require("../../assets/videos/hero.mp4"), (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.top}>
@@ -16,13 +25,11 @@ export default function WelcomeScreen({ navigation }) {
             plus a dark scrim so the white text stays readable regardless of
             what's playing underneath. */}
         <View style={styles.hero}>
-          <Video
-            source={require("../../assets/videos/hero.mp4")}
+          <VideoView
+            player={player}
             style={StyleSheet.absoluteFill}
-            resizeMode={ResizeMode.COVER}
-            isLooping
-            shouldPlay
-            isMuted
+            contentFit="cover"
+            nativeControls={false}
           />
           <View style={styles.heroScrim} />
 

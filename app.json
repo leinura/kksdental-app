@@ -2,6 +2,7 @@
   "expo": {
     "name": "KKSDENTAL Lab",
     "slug": "kksdental-lab",
+    "newArchEnabled": true,
     "version": "1.0.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
@@ -31,6 +32,10 @@
         "projectId": "744972df-fe34-428b-8ee4-413c2dfcfef4"
       }
     },
-    "owner": "nganba1"
+    "owner": "nganba1",
+    "plugins": [
+      "expo-font",
+      "expo-video"
+    ]
   }
 }
