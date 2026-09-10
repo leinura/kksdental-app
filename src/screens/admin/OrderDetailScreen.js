@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import { Zoomable } from "@likashefqet/react-native-image-zoom";
 import apiClient from "../../api/client";
 import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
@@ -188,11 +189,23 @@ export default function OrderDetailScreen({ route }) {
           </TouchableOpacity>
 
           {viewerIndex !== null && (
-            <Image
-              source={{ uri: order.photos[viewerIndex].imageData }}
+            // key={viewerIndex} forces a fresh mount per photo, so zoom/pan
+            // resets to normal whenever you move to a different photo via
+            // Prev/Next, rather than carrying over the previous zoom level.
+            <Zoomable
+              key={viewerIndex}
               style={styles.viewerImage}
-              resizeMode="contain"
-            />
+              minScale={1}
+              maxScale={5}
+              isDoubleTapEnabled
+              isPanEnabled
+            >
+              <Image
+                source={{ uri: order.photos[viewerIndex].imageData }}
+                style={styles.viewerImage}
+                resizeMode="contain"
+              />
+            </Zoomable>
           )}
 
           {order.photos.length > 1 && (

@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as Notifications from "expo-notifications";
 import { AuthProvider } from "./src/context/AuthContext";
 import AppNavigator from "./src/navigation/AppNavigator";
@@ -28,9 +29,14 @@ export default function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <StatusBar style="light" />
-      <AppNavigator />
-    </AuthProvider>
+    // Required root wrapper for react-native-gesture-handler (used by the
+    // pinch-to-zoom photo viewer on Order Detail) - must wrap everything
+    // else, so it sits outside AuthProvider/AppNavigator.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <StatusBar style="light" />
+        <AppNavigator />
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
