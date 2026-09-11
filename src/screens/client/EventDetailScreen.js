@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, FlatList, Linking, Dimensions } from "react-native";
+import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, FlatList, Linking, Alert, Dimensions } from "react-native";
 import { colors, spacing, radius } from "../../theme/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const GALLERY_HEIGHT = 300;
+const GALLERY_HEIGHT = 420;
 
 // Normalizes an event's photos regardless of whether it's a legacy
 // single-imageData event or a newer multi-photo one.
@@ -13,6 +13,13 @@ function getPhotoUris(event) {
   return [];
 }
 
+// Admins often type a link without a protocol (e.g. "google.com") - that
+// fails silently otherwise, so add https:// when it's missing.
+function normalizeLink(link) {
+  if (/^https?:\/\//i.test(link)) return link;
+  return `https://${link}`;
+}
+
 export default function EventDetailScreen({ route }) {
   const { event } = route.params;
   const photoUris = getPhotoUris(event);
@@ -20,9 +27,14 @@ export default function EventDetailScreen({ route }) {
 
   function handleContact() {
     if (event.link) {
-      Linking.openURL(event.link).catch(() => {});
+      const url = normalizeLink(event.link.trim());
+      Linking.openURL(url).catch(() => {
+        Alert.alert("Couldn't open link", "This event's link doesn't look valid.");
+      });
     } else if (event.phone) {
-      Linking.openURL(`tel:${event.phone}`).catch(() => {});
+      Linking.openURL(`tel:${event.phone}`).catch(() => {
+        Alert.alert("Couldn't start call", "Please try dialing manually.");
+      });
     }
   }
 
@@ -44,7 +56,10 @@ export default function EventDetailScreen({ route }) {
             onScroll={handleScroll}
             scrollEventThrottle={16}
             renderItem={({ item }) => (
-              <Image source={{ uri: item }} style={styles.galleryImage} resizeMode="cover" />
+              // contain, not cover - these are posters/flyers at real paper
+              // proportions (A4, A5, A3, Letter, etc.), so the full poster
+              // must stay visible rather than being cropped to fill the box.
+              <Image source={{ uri: item }} style={styles.galleryImage} resizeMode="contain" />
             )}
           />
           {photoUris.length > 1 && (
@@ -74,9 +89,9 @@ export default function EventDetailScreen({ route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   galleryImage: { width: SCREEN_WIDTH, height: GALLERY_HEIGHT, backgroundColor: colors.offWhite },
-  dots: { flexDirection: "row", justifyContent: "center", position: "absolute", bottom: spacing.sm, left: 0, right: 0, gap: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.6)" },
-  dotActive: { backgroundColor: colors.white, width: 18 },
+  dots: { flexDirection: "row", justifyContent: "center", paddingVertical: spacing.sm, gap: 6 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
+  dotActive: { backgroundColor: colors.dark, width: 18 },
   content: { padding: spacing.lg },
   title: { fontSize: 22, fontWeight: "700", color: colors.text, marginBottom: spacing.sm },
   description: { fontSize: 14, color: colors.textMuted, lineHeight: 21, marginBottom: spacing.lg },

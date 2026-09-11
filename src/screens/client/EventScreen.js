@@ -8,6 +8,7 @@ import {
   FlatList,
   ActivityIndicator,
   Linking,
+  Alert,
   RefreshControl,
   Dimensions,
 } from "react-native";
@@ -16,7 +17,7 @@ import apiClient from "../../api/client";
 import { colors, spacing, radius } from "../../theme/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_IMAGE_HEIGHT = 160;
+const CARD_IMAGE_HEIGHT = 220;
 
 // Normalizes an event's photos regardless of whether it's a legacy
 // single-imageData event or a newer multi-photo one.
@@ -24,6 +25,13 @@ function getPhotoUris(event) {
   if (event.photos?.length > 0) return event.photos.map((p) => p.imageData);
   if (event.imageData) return [event.imageData];
   return [];
+}
+
+// Admins often type a link without a protocol (e.g. "google.com") - that
+// fails silently otherwise, so add https:// when it's missing.
+function normalizeLink(link) {
+  if (/^https?:\/\//i.test(link)) return link;
+  return `https://${link}`;
 }
 
 export default function EventScreen({ navigation }) {
@@ -53,9 +61,14 @@ export default function EventScreen({ navigation }) {
 
   function handleContact(event) {
     if (event.link) {
-      Linking.openURL(event.link).catch(() => {});
+      const url = normalizeLink(event.link.trim());
+      Linking.openURL(url).catch(() => {
+        Alert.alert("Couldn't open link", "This event's link doesn't look valid.");
+      });
     } else if (event.phone) {
-      Linking.openURL(`tel:${event.phone}`).catch(() => {});
+      Linking.openURL(`tel:${event.phone}`).catch(() => {
+        Alert.alert("Couldn't start call", "Please try dialing manually.");
+      });
     }
   }
 
@@ -108,18 +121,20 @@ export default function EventScreen({ navigation }) {
 
 // Small per-card photo browser - manual swipe only (no auto-advance),
 // since multiple auto-sliding carousels stacked in one scrolling list
-// would be visually noisy. Swiping the photo doesn't trigger the card's
-// own onPress since FlatList's horizontal pan gesture takes priority.
+// would be visually noisy. contain (not cover) so a full poster - A4, A5,
+// A3, Letter, whatever proportions it happens to be - is always fully
+// visible, never cropped.
 function EventCardCarousel({ photos }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const cardWidth = SCREEN_WIDTH - spacing.lg * 2 - 2;
 
   function handleScroll(e) {
-    const index = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - spacing.lg * 2 - 2));
+    const index = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
     setActiveIndex(index);
   }
 
   if (photos.length === 1) {
-    return <Image source={{ uri: photos[0] }} style={styles.image} />;
+    return <Image source={{ uri: photos[0] }} style={styles.image} resizeMode="contain" />;
   }
 
   return (
@@ -133,7 +148,11 @@ function EventCardCarousel({ photos }) {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         renderItem={({ item }) => (
-          <Image source={{ uri: item }} style={[styles.image, { width: SCREEN_WIDTH - spacing.lg * 2 - 2 }]} />
+          <Image
+            source={{ uri: item }}
+            style={[styles.image, { width: cardWidth }]}
+            resizeMode="contain"
+          />
         )}
       />
       <View style={styles.dots}>
@@ -160,9 +179,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   image: { width: "100%", height: CARD_IMAGE_HEIGHT, backgroundColor: colors.offWhite },
-  dots: { flexDirection: "row", justifyContent: "center", position: "absolute", bottom: spacing.xs, left: 0, right: 0, gap: 5 },
-  dot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "rgba(255,255,255,0.6)" },
-  dotActive: { backgroundColor: colors.white, width: 14 },
+  dots: { flexDirection: "row", justifyContent: "center", paddingVertical: spacing.xs, gap: 5 },
+  dot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.border },
+  dotActive: { backgroundColor: colors.dark, width: 14 },
   cardBody: { padding: spacing.md },
   title: { fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: 4 },
   description: { fontSize: 13, color: colors.textMuted, lineHeight: 19, marginBottom: spacing.sm },
