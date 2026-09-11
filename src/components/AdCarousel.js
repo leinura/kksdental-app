@@ -55,7 +55,7 @@ export default function AdCarousel({ ads }) {
             onPress={() => handlePress(item)}
             style={{ width: SCREEN_WIDTH }}
           >
-            <Image source={{ uri: item.imageData }} style={styles.slide} resizeMode="cover" />
+            <Image source={{ uri: item.imageData }} style={styles.slide} resizeMode="contain" />
           </TouchableOpacity>
         )}
       />

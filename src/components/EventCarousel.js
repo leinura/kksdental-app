@@ -3,8 +3,16 @@ import { View, Image, FlatList, TouchableOpacity, Linking, StyleSheet, Dimension
 import { colors, spacing } from "../theme/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CAROUSEL_HEIGHT = 160;
+const CAROUSEL_HEIGHT = 260;
 const AUTO_SLIDE_INTERVAL = 4000;
+
+// First photo from either the new multi-photo set or the old single
+// imageData field - this compact Home preview shows one photo per event
+// slide; the full set is browsable on the Events tab / event detail page.
+function getFirstPhoto(event) {
+  if (event.photos?.length > 0) return event.photos[0].imageData;
+  return event.imageData || null;
+}
 
 // Same auto-advance-but-swipeable behavior as AdCarousel, for Events
 // (courses/seminars/conferences). Tapping opens the event's link if it has
@@ -52,19 +60,25 @@ export default function EventCarousel({ events }) {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         getItemLayout={(_, index) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * index, index })}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            activeOpacity={item.link || item.phone ? 0.85 : 1}
-            onPress={() => handlePress(item)}
-            style={{ width: SCREEN_WIDTH }}
-          >
-            {item.imageData ? (
-              <Image source={{ uri: item.imageData }} style={styles.slide} resizeMode="cover" />
-            ) : (
-              <View style={[styles.slide, styles.placeholderSlide]} />
-            )}
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }) => {
+          const photoUri = getFirstPhoto(item);
+          return (
+            <TouchableOpacity
+              activeOpacity={item.link || item.phone ? 0.85 : 1}
+              onPress={() => handlePress(item)}
+              style={{ width: SCREEN_WIDTH }}
+            >
+              {photoUri ? (
+                // contain, not cover - these are posters/flyers at real
+                // paper proportions (A4, A5, A3, Letter, etc.), so the
+                // full poster must stay visible rather than being cropped.
+                <Image source={{ uri: photoUri }} style={styles.slide} resizeMode="contain" />
+              ) : (
+                <View style={[styles.slide, styles.placeholderSlide]} />
+              )}
+            </TouchableOpacity>
+          );
+        }}
       />
       {events.length > 1 && (
         <View style={styles.dots}>
