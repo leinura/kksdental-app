@@ -25,7 +25,9 @@ export default function EventsScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [image, setImage] = useState(null); // { uri, base64 } or { existingUri }
+  // Each entry is either { uri, base64 } for a newly picked photo, or
+  // { existingUri } for one already saved on the event being edited.
+  const [photos, setPhotos] = useState([]);
   const [processingPhoto, setProcessingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -56,7 +58,7 @@ export default function EventsScreen() {
   function resetForm() {
     setEditingId(null);
     setForm(EMPTY_FORM);
-    setImage(null);
+    setPhotos([]);
   }
 
   function openNewEvent() {
@@ -72,14 +74,22 @@ export default function EventsScreen() {
       link: event.link || "",
       phone: event.phone || "",
     });
-    setImage(event.imageData ? { existingUri: event.imageData } : null);
+    // Prefer the new multi-photo set; fall back to the old single imageData
+    // field for any event created before this feature existed.
+    const existing =
+      event.photos?.length > 0
+        ? event.photos.map((p) => ({ existingUri: p.imageData }))
+        : event.imageData
+        ? [{ existingUri: event.imageData }]
+        : [];
+    setPhotos(existing);
     setShowForm(true);
   }
 
-  async function pickImage() {
+  async function addPhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Allow photo library access to add an event photo.");
+      Alert.alert("Permission needed", "Allow photo library access to add event photos.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -94,12 +104,16 @@ export default function EventsScreen() {
         [{ resize: { width: 1280 } }],
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
-      setImage({ uri: manipulated.uri, base64: manipulated.base64 });
+      setPhotos((prev) => [...prev, { uri: manipulated.uri, base64: manipulated.base64 }]);
     } catch (err) {
       Alert.alert("Couldn't process photo", "Please try again.");
     } finally {
       setProcessingPhoto(false);
     }
+  }
+
+  function removePhoto(index) {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSave() {
@@ -109,13 +123,17 @@ export default function EventsScreen() {
     }
     setSubmitting(true);
     try {
-      const imageData = image ? (image.base64 ? `data:image/jpeg;base64,${image.base64}` : image.existingUri) : null;
+      // Full desired photo set - existing ones kept as their URI, new ones
+      // as freshly-encoded base64 data-URIs.
+      const photoPayload = photos.map((p) =>
+        p.base64 ? `data:image/jpeg;base64,${p.base64}` : p.existingUri
+      );
       const payload = {
         title: form.title.trim(),
         description: form.description.trim() || null,
         link: form.link.trim() || null,
         phone: form.phone.trim() || null,
-        imageData,
+        photos: photoPayload,
       };
 
       if (editingId) {
@@ -152,7 +170,6 @@ export default function EventsScreen() {
   }
 
   if (showForm) {
-    const previewUri = image ? image.uri || image.existingUri : null;
     return (
       <FlatList
         style={styles.container}
@@ -180,15 +197,24 @@ export default function EventsScreen() {
               placeholderTextColor={colors.textMuted}
             />
 
-            <Text style={styles.label}>Photo (optional)</Text>
-            {previewUri ? <Image source={{ uri: previewUri }} style={styles.coverPreview} /> : null}
-            <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage} disabled={processingPhoto}>
-              {processingPhoto ? (
-                <ActivityIndicator size="small" color={colors.dark} />
-              ) : (
-                <Text style={styles.imagePickerText}>{previewUri ? "Change Photo" : "Choose Photo"}</Text>
-              )}
-            </TouchableOpacity>
+            <Text style={styles.label}>Photos (optional)</Text>
+            <View style={styles.photoRow}>
+              {photos.map((photo, index) => (
+                <View key={index} style={styles.photoThumbWrap}>
+                  <Image source={{ uri: photo.uri || photo.existingUri }} style={styles.photoThumb} />
+                  <TouchableOpacity style={styles.photoRemoveButton} onPress={() => removePhoto(index)}>
+                    <Text style={styles.photoRemoveText}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity style={styles.addPhotoButton} onPress={addPhoto} disabled={processingPhoto}>
+                {processingPhoto ? (
+                  <ActivityIndicator size="small" color={colors.textMuted} />
+                ) : (
+                  <Text style={styles.addPhotoText}>+</Text>
+                )}
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.label}>Link (optional)</Text>
             <TextInput
@@ -250,17 +276,21 @@ export default function EventsScreen() {
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No events yet - tap "New Event" to add the first one.</Text>}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.eventRow} onPress={() => openEditEvent(item)}>
-              {item.imageData ? <Image source={{ uri: item.imageData }} style={styles.eventThumb} /> : null}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.eventTitle}>{item.title}</Text>
-                <Text style={styles.eventMeta}>
-                  {item.link ? "🔗 Has link" : item.phone ? `📞 ${item.phone}` : "No contact info"}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            const thumbUri = item.photos?.[0]?.imageData || item.imageData;
+            return (
+              <TouchableOpacity style={styles.eventRow} onPress={() => openEditEvent(item)}>
+                {thumbUri ? <Image source={{ uri: thumbUri }} style={styles.eventThumb} /> : null}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.eventTitle}>{item.title}</Text>
+                  <Text style={styles.eventMeta}>
+                    {item.photos?.length > 1 ? `${item.photos.length} photos · ` : ""}
+                    {item.link ? "🔗 Has link" : item.phone ? `📞 ${item.phone}` : "No contact info"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
     </View>
@@ -299,15 +329,33 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   textArea: { minHeight: 100, textAlignVertical: "top" },
-  coverPreview: { width: "100%", height: 160, borderRadius: radius.card, marginBottom: spacing.sm },
-  imagePickerButton: {
-    borderWidth: 1,
-    borderColor: colors.dark,
-    borderRadius: radius.pill,
-    paddingVertical: 10,
+  photoRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  photoThumbWrap: { position: "relative" },
+  photoThumb: { width: 72, height: 72, borderRadius: radius.input, backgroundColor: colors.offWhite },
+  photoRemoveButton: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.danger,
     alignItems: "center",
+    justifyContent: "center",
   },
-  imagePickerText: { color: colors.dark, fontWeight: "700", fontSize: 13 },
+  photoRemoveText: { color: colors.white, fontSize: 14, fontWeight: "700", lineHeight: 16 },
+  addPhotoButton: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.input,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.offWhite,
+  },
+  addPhotoText: { fontSize: 28, color: colors.textMuted, fontWeight: "300" },
   submitButton: {
     backgroundColor: colors.dark,
     borderRadius: radius.pill,

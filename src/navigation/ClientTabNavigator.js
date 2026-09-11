@@ -9,6 +9,7 @@ import BillingScreen from "../screens/client/BillingScreen";
 import YourOrderScreen from "../screens/client/YourOrderScreen";
 import ClientOrderDetailScreen from "../screens/client/ClientOrderDetailScreen";
 import EventScreen from "../screens/client/EventScreen";
+import EventDetailScreen from "../screens/client/EventDetailScreen";
 import MoreMenuScreen from "../screens/client/MoreMenuScreen";
 import InvoicesScreen from "../screens/client/InvoicesScreen";
 import AccountSettingScreen from "../screens/client/AccountSettingScreen";
@@ -70,6 +71,11 @@ export default function ClientTabNavigator() {
         name="ClientOrderDetail"
         component={ClientOrderDetailScreen}
         options={{ title: "Order Details", tabBarButton: () => null, tabBarStyle: { display: "none" } }}
+      />
+      <Tab.Screen
+        name="EventDetail"
+        component={EventDetailScreen}
+        options={{ title: "Event", tabBarButton: () => null, tabBarStyle: { display: "none" } }}
       />
     </Tab.Navigator>
   );
