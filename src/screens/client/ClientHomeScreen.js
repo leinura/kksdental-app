@@ -105,7 +105,7 @@ export default function ClientHomeScreen() {
                   activeOpacity={ad.link ? 0.85 : 1}
                   onPress={() => handleShopAdPress(ad)}
                 >
-                  <Image source={{ uri: ad.imageData }} style={styles.shopTileImage} resizeMode="cover" />
+                  <Image source={{ uri: ad.imageData }} style={styles.shopTileImage} resizeMode="contain" />
                 </TouchableOpacity>
               ))}
             </View>

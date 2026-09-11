@@ -12,6 +12,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { Zoomable } from "@likashefqet/react-native-image-zoom";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import apiClient from "../../api/client";
 import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
@@ -183,6 +184,12 @@ export default function OrderDetailScreen({ route }) {
 
     {order.photos?.length > 0 && (
       <Modal visible={viewerIndex !== null} transparent animationType="fade" onRequestClose={() => setViewerIndex(null)}>
+        {/* Modal renders to its OWN native view hierarchy (especially on
+            Android), separate from the app's main tree - the
+            GestureHandlerRootView wrapping App.js doesn't reach in here,
+            so pinch/double-tap gestures need their own root inside the
+            Modal to work at all. */}
+        <GestureHandlerRootView style={{ flex: 1 }}>
         <View style={styles.viewerOverlay}>
           <TouchableOpacity style={styles.viewerClose} onPress={() => setViewerIndex(null)}>
             <Text style={styles.viewerCloseText}>×</Text>
@@ -237,6 +244,7 @@ export default function OrderDetailScreen({ route }) {
             </View>
           )}
         </View>
+        </GestureHandlerRootView>
       </Modal>
     )}
     </>
