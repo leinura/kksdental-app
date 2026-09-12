@@ -19,7 +19,7 @@ import { colors, spacing, radius } from "../../theme/colors";
 import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
 
 // inside the component, alongside your existing useFocusEffect:
-useRefreshOnForeground(loadOrders); // or whatever your load function is called
+// or whatever your load function is called
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SHOP_COLUMNS = 2;
@@ -61,6 +61,7 @@ export default function ClientHomeScreen() {
       loadData();
     }, [loadData])
   );
+  useRefreshOnForeground(loadOrders); 
 
   async function handleRefresh() {
     setRefreshing(true);

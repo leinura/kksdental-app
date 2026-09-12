@@ -18,9 +18,6 @@ import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
 import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
 
-// inside the component, alongside your existing useFocusEffect:
-useRefreshOnForeground(loadOrders); // or whatever your load function is called
-
 export default function OrderDetailScreen({ route }) {
   const { caseId } = route.params;
   const [order, setOrder] = useState(null);
@@ -39,6 +36,8 @@ export default function OrderDetailScreen({ route }) {
   useEffect(() => {
     loadOrder();
   }, [loadOrder]);
+
+  useRefreshOnForeground(loadOrder);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -129,10 +128,14 @@ export default function OrderDetailScreen({ route }) {
           <DetailRow label="Warranty" value={order.warranty?.label || "No warranty"} />
         )}
         <DetailRow label="Tooth Shade" value={order.toothShade?.code || "-"} />
-        <DetailRow
-          label="Tooth Number(s)"
-          value={order.toothNumbers?.length > 0 ? order.toothNumbers.join(", ") : "-"}
-        />
+        {order.archUpper || order.archLower ? (
+          <DetailRow
+            label="Arch"
+            value={[order.archUpper && "Upper", order.archLower && "Lower"].filter(Boolean).join(" + ")}
+          />
+        ) : order.toothNumbers?.length > 0 ? (
+          <DetailRow label="Tooth Number(s)" value={order.toothNumbers.join(", ")} />
+        ) : null}
         <DetailRow label="Quantity" value={String(order.quantity)} />
       </View>
 
@@ -141,6 +144,15 @@ export default function OrderDetailScreen({ route }) {
           <Text style={styles.sectionLabel}>Steps</Text>
           {order.caseSteps.map((step) => (
             <DetailRow key={step.id} label={step.name} value={`₹${Number(step.price).toFixed(2)}`} />
+          ))}
+        </View>
+      )}
+
+      {order.caseAddons?.length > 0 && (
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Add-ons</Text>
+          {order.caseAddons.map((addon) => (
+            <DetailRow key={addon.id} label={addon.name} value={`+₹${Number(addon.price).toFixed(2)}`} />
           ))}
         </View>
       )}

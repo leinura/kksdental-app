@@ -6,9 +6,6 @@ import { STATUS_COLORS, STATUS_LABELS } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
 import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
 
-// inside the component, alongside your existing useFocusEffect:
-useRefreshOnForeground(loadOrders); // or whatever your load function is called
-
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const CHART_HEIGHT = 100;
 
@@ -53,6 +50,8 @@ export default function AdminDashboardScreen() {
       loadCases();
     }, [loadCases])
   );
+
+  useRefreshOnForeground(loadCases);
 
   async function handleRefresh() {
     setRefreshing(true);

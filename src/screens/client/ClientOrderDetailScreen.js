@@ -21,7 +21,7 @@ import { colors, spacing, radius } from "../../theme/colors";
 import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
 
 // inside the component, alongside your existing useFocusEffect:
-useRefreshOnForeground(loadOrders); // or whatever your load function is called
+// or whatever your load function is called
 
 export default function ClientOrderDetailScreen({ route }) {
   const { caseId } = route.params;
@@ -63,6 +63,7 @@ export default function ClientOrderDetailScreen({ route }) {
   useEffect(() => {
     loadOrder();
   }, [loadOrder]);
+  useRefreshOnForeground(loadOrders); 
 
   async function handleRefresh() {
     setRefreshing(true);
