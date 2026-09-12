@@ -35,9 +35,12 @@ export default function ClientOrderDetailScreen({ route }) {
   const [serviceSubtypeId, setServiceSubtypeId] = useState(null);
   const [serviceTypeWarrantyId, setServiceTypeWarrantyId] = useState(null);
   const [stepIds, setStepIds] = useState([]);
+  const [addonIds, setAddonIds] = useState([]);
   const [toothShadeId, setToothShadeId] = useState(null);
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
+  const [archUpper, setArchUpper] = useState(false);
+  const [archLower, setArchLower] = useState(false);
   const [photos, setPhotos] = useState([]);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -70,9 +73,12 @@ export default function ClientOrderDetailScreen({ route }) {
     setServiceSubtypeId(null);
     setServiceTypeWarrantyId(null);
     setStepIds([]);
+    setAddonIds([]);
     setToothShadeId(null);
     setToothNumbers([]);
     setQuantityOverride(null);
+    setArchUpper(false);
+    setArchLower(false);
     setPhotos([]);
     setComment("");
     setShowNewOrderForm(false);
@@ -93,9 +99,12 @@ export default function ClientOrderDetailScreen({ route }) {
         serviceSubtypeId,
         serviceTypeWarrantyId,
         stepIds,
+        addonIds,
         toothShadeId,
         toothNumbers,
         quantity: quantityOverride,
+        archUpper,
+        archLower,
         photos: photos.map((p) => `data:image/jpeg;base64,${p.base64}`),
         comment: comment.trim() || undefined,
       });
@@ -277,12 +286,18 @@ export default function ClientOrderDetailScreen({ route }) {
               setServiceTypeWarrantyId={setServiceTypeWarrantyId}
               stepIds={stepIds}
               setStepIds={setStepIds}
+              addonIds={addonIds}
+              setAddonIds={setAddonIds}
               toothShadeId={toothShadeId}
               setToothShadeId={setToothShadeId}
               toothNumbers={toothNumbers}
               setToothNumbers={setToothNumbers}
               quantityOverride={quantityOverride}
               setQuantityOverride={setQuantityOverride}
+              archUpper={archUpper}
+              setArchUpper={setArchUpper}
+              archLower={archLower}
+              setArchLower={setArchLower}
               photos={photos}
               setPhotos={setPhotos}
               comment={comment}

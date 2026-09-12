@@ -11,12 +11,26 @@ import { colors, spacing, radius } from "../theme/colors";
 // (rather than owning its own state) means Registration and Billing can
 // both reset/prefill it however they need.
 //
-// A selected Service Type can be priced in one of three ways, decided by
-// its own configuration (set up in Catalog > Services):
-//   1. Legacy - single global Warranty list, original two-level system.
-//      Kept fully working for anything not migrated to the newer structure.
-//   2. Sub-Type + that Service Type's own scoped Warranty list (or none).
-//   3. Step-based - pick one or more priced Steps, total is their sum.
+// A selected Service Type has two INDEPENDENT configurations (set up in
+// Catalog > Services):
+//
+//   QUANTITY SOURCE - decides what drives quantity, and which selector
+//   shows on the form:
+//     - usesArch: Upper/Lower checkboxes, quantity = how many are checked.
+//     - usesFdiNumbering (default): the FDI Tooth Chart, quantity = how
+//       many teeth are selected.
+//     - neither: flat one-off item, quantity defaults to 1 (manual only).
+//
+//   PRICING PATH - decides how the price itself is calculated:
+//     1. Legacy - single global Warranty list, original two-level system.
+//     2. Sub-Type + that Service Type's own scoped Warranty list (or none).
+//     3. Steps - pick one or more priced Steps; a Step's own perArch flag
+//        decides whether its price multiplies by the arch count.
+//     4. Tiered - base price for the first unit + increment per additional
+//        unit (e.g. Removable Partial Denture).
+//
+//   ADD-ONS layer on top of whichever path above computed the base total,
+//   each one multiplied by quantity, independent of pricing path.
 export default function CaseDetailsFields({
   services,
   warranties,
@@ -34,12 +48,18 @@ export default function CaseDetailsFields({
   setServiceTypeWarrantyId,
   stepIds,
   setStepIds,
+  addonIds,
+  setAddonIds,
   toothShadeId,
   setToothShadeId,
   toothNumbers,
   setToothNumbers,
   quantityOverride,
   setQuantityOverride,
+  archUpper,
+  setArchUpper,
+  archLower,
+  setArchLower,
   photos,
   setPhotos,
   comment,
@@ -48,17 +68,30 @@ export default function CaseDetailsFields({
   const selectedService = services.find((s) => s.id === serviceId);
   const serviceTypes = selectedService ? selectedService.serviceTypes : [];
   const selectedServiceType = serviceTypes.find((t) => t.id === serviceTypeId);
-  const quantity = quantityOverride ?? (toothNumbers.length || 1);
   const [processingPhoto, setProcessingPhoto] = useState(false);
 
+  const usesArch = !!selectedServiceType?.usesArch;
+  const usesFdiNumbering = !usesArch && !!selectedServiceType?.usesFdiNumbering;
+
+  // Quantity source
+  let quantity;
+  if (usesArch) {
+    quantity = (archUpper ? 1 : 0) + (archLower ? 1 : 0);
+  } else if (usesFdiNumbering) {
+    quantity = quantityOverride ?? (toothNumbers.length || 1);
+  } else {
+    quantity = quantityOverride ?? 1;
+  }
+
   const usesSteps = !!selectedServiceType?.usesSteps;
-  const hasSubtypes = !usesSteps && (selectedServiceType?.subtypes?.length || 0) > 0;
-  const isLegacy = !usesSteps && !hasSubtypes;
+  const usesTieredPricing = !usesSteps && !!selectedServiceType?.usesTieredPricing;
+  const hasSubtypes = !usesSteps && !usesTieredPricing && (selectedServiceType?.subtypes?.length || 0) > 0;
+  const isLegacy = !usesSteps && !usesTieredPricing && !hasSubtypes;
 
   // Legacy path only: Warranty only matters for these specific Crown service
   // types - everything else skips the warranty question and is priced under
   // the admin-configured "No Warranties" entry automatically. Kept exactly
-  // as before for any Service Type not migrated to Sub-Types/Steps.
+  // as before for any Service Type not migrated to Sub-Types/Steps/Tiered.
   const WARRANTY_ELIGIBLE_TYPES = ["zirconia", "pfm", "esthetic zirconia"];
   const needsWarrantyChoice =
     isLegacy &&
@@ -73,11 +106,15 @@ export default function CaseDetailsFields({
   }, [isLegacy, needsWarrantyChoice, noWarrantyEntry?.id]);
 
   // Reset the OTHER paths' selections whenever the Service Type changes, so
-  // a leftover Sub-Type/Step selection from a previous pick never lingers.
+  // a leftover Sub-Type/Step/Add-on/Arch selection from a previous pick
+  // never lingers.
   useEffect(() => {
     setServiceSubtypeId(null);
     setServiceTypeWarrantyId(null);
     setStepIds([]);
+    setAddonIds([]);
+    setArchUpper(false);
+    setArchLower(false);
   }, [serviceTypeId]);
 
   // Also clear the warranty choice whenever the Sub-Type changes - each
@@ -106,7 +143,17 @@ export default function CaseDetailsFields({
   if (usesSteps) {
     const selectedSteps = (selectedServiceType.steps || []).filter((s) => stepIds.includes(s.id));
     if (selectedSteps.length > 0) {
-      totalPrice = selectedSteps.reduce((sum, s) => sum + Number(s.price), 0);
+      totalPrice = selectedSteps.reduce(
+        (sum, s) => sum + (s.perArch ? Number(s.price) * quantity : Number(s.price)),
+        0
+      );
+      unitPrice = totalPrice;
+    }
+  } else if (usesTieredPricing) {
+    if (selectedServiceType.tieredBasePrice != null && selectedServiceType.tieredIncrementPrice != null && quantity > 0) {
+      const base = Number(selectedServiceType.tieredBasePrice);
+      const increment = Number(selectedServiceType.tieredIncrementPrice);
+      totalPrice = base + Math.max(0, quantity - 1) * increment;
       unitPrice = totalPrice;
     }
   } else if (hasSubtypes) {
@@ -127,6 +174,12 @@ export default function CaseDetailsFields({
       unitPrice = Number(matchedPrice.price);
       totalPrice = unitPrice * quantity;
     }
+  }
+
+  // Add-ons, layered on top - only once a base price exists.
+  const selectedAddons = (selectedServiceType?.addons || []).filter((a) => addonIds.includes(a.id));
+  if (totalPrice != null && selectedAddons.length > 0) {
+    totalPrice += selectedAddons.reduce((sum, a) => sum + Number(a.price) * quantity, 0);
   }
 
   async function addPhoto() {
@@ -169,6 +222,14 @@ export default function CaseDetailsFields({
       setStepIds(stepIds.filter((id) => id !== stepId));
     } else {
       setStepIds([...stepIds, stepId]);
+    }
+  }
+
+  function toggleAddon(addonId) {
+    if (addonIds.includes(addonId)) {
+      setAddonIds(addonIds.filter((id) => id !== addonId));
+    } else {
+      setAddonIds([...addonIds, addonId]);
     }
   }
 
@@ -232,6 +293,7 @@ export default function CaseDetailsFields({
           ) : (
             selectedServiceType.steps.map((step) => {
               const isSelected = stepIds.includes(step.id);
+              const displayPrice = step.perArch ? Number(step.price) * Math.max(quantity, 1) : Number(step.price);
               return (
                 <TouchableOpacity
                   key={step.id}
@@ -239,12 +301,28 @@ export default function CaseDetailsFields({
                   onPress={() => toggleStep(step.id)}
                 >
                   <Text style={styles.stepCheckbox}>{isSelected ? "☑" : "☐"}</Text>
-                  <Text style={styles.stepName}>{step.name}</Text>
-                  <Text style={styles.stepPrice}>₹{Number(step.price).toFixed(2)}</Text>
+                  <Text style={styles.stepName}>
+                    {step.name}
+                    {step.perArch ? " (per arch)" : ""}
+                  </Text>
+                  <Text style={styles.stepPrice}>₹{displayPrice.toFixed(2)}</Text>
                 </TouchableOpacity>
               );
             })
           )}
+        </Field>
+      )}
+
+      {usesArch && (
+        <Field label="Arch *">
+          <TouchableOpacity style={styles.archRow} onPress={() => setArchUpper(!archUpper)}>
+            <Text style={styles.archCheckbox}>{archUpper ? "☑" : "☐"}</Text>
+            <Text style={styles.archLabel}>Upper Arch</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.archRow} onPress={() => setArchLower(!archLower)}>
+            <Text style={styles.archCheckbox}>{archLower ? "☑" : "☐"}</Text>
+            <Text style={styles.archLabel}>Lower Arch</Text>
+          </TouchableOpacity>
         </Field>
       )}
 
@@ -256,28 +334,49 @@ export default function CaseDetailsFields({
         />
       </Field>
 
-      <ToothChart selected={toothNumbers} onChange={setToothNumbers} />
+      {usesFdiNumbering && <ToothChart selected={toothNumbers} onChange={setToothNumbers} />}
 
-      <Field label="Quantity">
-        <View style={styles.stepperRow}>
-          <TouchableOpacity
-            style={styles.stepperButton}
-            onPress={() => setQuantityOverride(Math.max(1, quantity - 1))}
-          >
-            <Text style={styles.stepperButtonText}>−</Text>
-          </TouchableOpacity>
-          <TextInput
-            style={styles.stepperInput}
-            value={String(quantity)}
-            onChangeText={(v) => setQuantityOverride(v ? Number(v) : null)}
-            keyboardType="number-pad"
-            textAlign="center"
-          />
-          <TouchableOpacity style={styles.stepperButton} onPress={() => setQuantityOverride(quantity + 1)}>
-            <Text style={styles.stepperButtonText}>+</Text>
-          </TouchableOpacity>
-        </View>
-      </Field>
+      {!usesArch && (
+        <Field label="Quantity">
+          <View style={styles.stepperRow}>
+            <TouchableOpacity
+              style={styles.stepperButton}
+              onPress={() => setQuantityOverride(Math.max(1, quantity - 1))}
+            >
+              <Text style={styles.stepperButtonText}>−</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.stepperInput}
+              value={String(quantity)}
+              onChangeText={(v) => setQuantityOverride(v ? Number(v) : null)}
+              keyboardType="number-pad"
+              textAlign="center"
+            />
+            <TouchableOpacity style={styles.stepperButton} onPress={() => setQuantityOverride(quantity + 1)}>
+              <Text style={styles.stepperButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </Field>
+      )}
+
+      {(selectedServiceType?.addons?.length || 0) > 0 && (
+        <Field label="Add-ons (optional)">
+          {selectedServiceType.addons.map((addon) => {
+            const isSelected = addonIds.includes(addon.id);
+            return (
+              <TouchableOpacity
+                key={addon.id}
+                style={[styles.stepRow, isSelected && styles.stepRowSelected]}
+                onPress={() => toggleAddon(addon.id)}
+              >
+                <Text style={styles.stepCheckbox}>{isSelected ? "☑" : "☐"}</Text>
+                <Text style={styles.stepName}>{addon.name}</Text>
+                <Text style={styles.stepPrice}>+₹{Number(addon.price).toFixed(2)}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </Field>
+      )}
 
       <Field label="Price">
         <View style={styles.priceBox}>
@@ -405,4 +504,18 @@ const styles = StyleSheet.create({
   stepCheckbox: { fontSize: 18, color: colors.text },
   stepName: { flex: 1, fontSize: 14, color: colors.text },
   stepPrice: { fontSize: 14, fontWeight: "700", color: colors.text },
+  archRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.white,
+  },
+  archCheckbox: { fontSize: 18, color: colors.text },
+  archLabel: { fontSize: 14, color: colors.text, fontWeight: "600" },
 });

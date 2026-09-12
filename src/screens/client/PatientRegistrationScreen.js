@@ -31,9 +31,12 @@ export default function PatientRegistrationScreen() {
   const [serviceSubtypeId, setServiceSubtypeId] = useState(null);
   const [serviceTypeWarrantyId, setServiceTypeWarrantyId] = useState(null);
   const [stepIds, setStepIds] = useState([]);
+  const [addonIds, setAddonIds] = useState([]);
   const [toothShadeId, setToothShadeId] = useState(null);
   const [toothNumbers, setToothNumbers] = useState([]);
   const [quantityOverride, setQuantityOverride] = useState(null);
+  const [archUpper, setArchUpper] = useState(false);
+  const [archLower, setArchLower] = useState(false);
   const [photos, setPhotos] = useState([]); // [{ uri, base64 }]
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -62,9 +65,12 @@ export default function PatientRegistrationScreen() {
     setServiceSubtypeId(null);
     setServiceTypeWarrantyId(null);
     setStepIds([]);
+    setAddonIds([]);
     setToothShadeId(null);
     setToothNumbers([]);
     setQuantityOverride(null);
+    setArchUpper(false);
+    setArchLower(false);
     setPhotos([]);
     setComment("");
     setJustRegistered(null);
@@ -94,9 +100,12 @@ export default function PatientRegistrationScreen() {
         serviceSubtypeId,
         serviceTypeWarrantyId,
         stepIds,
+        addonIds,
         toothShadeId,
         toothNumbers,
         quantity: quantityOverride,
+        archUpper,
+        archLower,
         photos: photos.map((p) => `data:image/jpeg;base64,${p.base64}`),
         comment: comment.trim() || undefined,
       });
@@ -155,19 +164,42 @@ export default function PatientRegistrationScreen() {
   // --- Review summary values ---
   const selectedService = services.find((s) => s.id === serviceId);
   const selectedServiceType = selectedService?.serviceTypes?.find((t) => t.id === serviceTypeId);
+  const usesArch = !!selectedServiceType?.usesArch;
+  const usesFdiNumbering = !usesArch && !!selectedServiceType?.usesFdiNumbering;
   const usesSteps = !!selectedServiceType?.usesSteps;
-  const hasSubtypes = !usesSteps && (selectedServiceType?.subtypes?.length || 0) > 0;
+  const usesTieredPricing = !usesSteps && !!selectedServiceType?.usesTieredPricing;
+  const hasSubtypes = !usesSteps && !usesTieredPricing && (selectedServiceType?.subtypes?.length || 0) > 0;
 
   const selectedWarranty = warranties.find((w) => w.id === warrantyId);
   const selectedSubtype = selectedServiceType?.subtypes?.find((s) => s.id === serviceSubtypeId);
   const selectedTypeWarranty = selectedServiceType?.typeWarranties?.find((w) => w.id === serviceTypeWarrantyId);
   const selectedSteps = (selectedServiceType?.steps || []).filter((s) => stepIds.includes(s.id));
+  const selectedAddons = (selectedServiceType?.addons || []).filter((a) => addonIds.includes(a.id));
   const selectedShade = toothShades.find((s) => s.id === toothShadeId);
-  const quantity = quantityOverride ?? (toothNumbers.length || 1);
+
+  let quantity;
+  if (usesArch) {
+    quantity = (archUpper ? 1 : 0) + (archLower ? 1 : 0);
+  } else if (usesFdiNumbering) {
+    quantity = quantityOverride ?? (toothNumbers.length || 1);
+  } else {
+    quantity = quantityOverride ?? 1;
+  }
 
   let totalPrice = null;
   if (usesSteps) {
-    if (selectedSteps.length > 0) totalPrice = selectedSteps.reduce((sum, s) => sum + Number(s.price), 0);
+    if (selectedSteps.length > 0) {
+      totalPrice = selectedSteps.reduce(
+        (sum, s) => sum + (s.perArch ? Number(s.price) * quantity : Number(s.price)),
+        0
+      );
+    }
+  } else if (usesTieredPricing) {
+    if (selectedServiceType.tieredBasePrice != null && selectedServiceType.tieredIncrementPrice != null && quantity > 0) {
+      totalPrice =
+        Number(selectedServiceType.tieredBasePrice) +
+        Math.max(0, quantity - 1) * Number(selectedServiceType.tieredIncrementPrice);
+    }
   } else if (hasSubtypes) {
     if (selectedSubtype) {
       const entry = (selectedSubtype.priceEntries || []).find(
@@ -180,6 +212,9 @@ export default function PatientRegistrationScreen() {
       (p) => p.serviceId === serviceId && p.serviceTypeId === serviceTypeId && p.warrantyId === warrantyId
     );
     if (matchedPrice) totalPrice = Number(matchedPrice.price) * quantity;
+  }
+  if (totalPrice != null && selectedAddons.length > 0) {
+    totalPrice += selectedAddons.reduce((sum, a) => sum + Number(a.price) * quantity, 0);
   }
 
   if (step === "review" || step === "choosing") {
@@ -200,7 +235,7 @@ export default function PatientRegistrationScreen() {
                 label="Steps"
                 value={selectedSteps.length > 0 ? selectedSteps.map((s) => s.name).join(", ") : "-"}
               />
-            ) : hasSubtypes ? (
+            ) : usesTieredPricing ? null : hasSubtypes ? (
               <>
                 <SummaryRow label="Sub-Type" value={selectedSubtype?.name || "-"} />
                 <SummaryRow label="Warranty" value={selectedTypeWarranty?.label || "No warranty"} />
@@ -209,8 +244,21 @@ export default function PatientRegistrationScreen() {
               <SummaryRow label="Warranty" value={selectedWarranty?.label || "No warranty"} />
             )}
 
+            {selectedAddons.length > 0 && (
+              <SummaryRow label="Add-ons" value={selectedAddons.map((a) => a.name).join(", ")} />
+            )}
+
             <SummaryRow label="Tooth Shade" value={selectedShade?.code || "-"} />
-            <SummaryRow label="Tooth Number(s)" value={toothNumbers.length > 0 ? toothNumbers.join(", ") : "-"} />
+            {usesArch ? (
+              <SummaryRow
+                label="Arch"
+                value={
+                  [archUpper && "Upper", archLower && "Lower"].filter(Boolean).join(" + ") || "-"
+                }
+              />
+            ) : usesFdiNumbering ? (
+              <SummaryRow label="Tooth Number(s)" value={toothNumbers.length > 0 ? toothNumbers.join(", ") : "-"} />
+            ) : null}
             <SummaryRow label="Quantity" value={String(quantity)} />
             <SummaryRow label="Comment" value={comment.trim() || "-"} />
             <SummaryRow
@@ -333,12 +381,18 @@ export default function PatientRegistrationScreen() {
         setServiceTypeWarrantyId={setServiceTypeWarrantyId}
         stepIds={stepIds}
         setStepIds={setStepIds}
+        addonIds={addonIds}
+        setAddonIds={setAddonIds}
         toothShadeId={toothShadeId}
         setToothShadeId={setToothShadeId}
         toothNumbers={toothNumbers}
         setToothNumbers={setToothNumbers}
         quantityOverride={quantityOverride}
         setQuantityOverride={setQuantityOverride}
+        archUpper={archUpper}
+        setArchUpper={setArchUpper}
+        archLower={archLower}
+        setArchLower={setArchLower}
         photos={photos}
         setPhotos={setPhotos}
         comment={comment}

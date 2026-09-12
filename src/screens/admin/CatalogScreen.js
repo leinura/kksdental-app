@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Switch,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -165,9 +164,9 @@ function ServicesTab({ services, onChange, refreshing, onRefresh }) {
     ]);
   }
 
-  async function toggleUsesSteps(serviceType) {
+  async function updateServiceType(serviceType, patch) {
     try {
-      await apiClient.put(`/catalog/service-types/${serviceType.id}`, { usesSteps: !serviceType.usesSteps });
+      await apiClient.put(`/catalog/service-types/${serviceType.id}`, patch);
       onChange();
     } catch (err) {
       Alert.alert("Couldn't update", "Please try again.");
@@ -223,7 +222,13 @@ function ServicesTab({ services, onChange, refreshing, onRefresh }) {
                         </TouchableOpacity>
                       </TouchableOpacity>
 
-                      {typeExpanded && <ServiceTypeDetail serviceType={st} onChange={onChange} onToggleSteps={() => toggleUsesSteps(st)} />}
+                      {typeExpanded && (
+                        <ServiceTypeDetail
+                          serviceType={st}
+                          onChange={onChange}
+                          onUpdate={(patch) => updateServiceType(st, patch)}
+                        />
+                      )}
                     </View>
                   );
                 })}
@@ -248,15 +253,49 @@ function ServicesTab({ services, onChange, refreshing, onRefresh }) {
   );
 }
 
-// Manages ONE Service Type's pricing configuration: either step-based
-// (Complete Denture style) or Sub-Types + their own scoped Warranties
-// (Crown > ALL CERAMIC / PFM / METAL style). Mutually exclusive - the
-// usesSteps toggle switches which section is shown.
-function ServiceTypeDetail({ serviceType, onChange, onToggleSteps }) {
+// Manages ONE Service Type's full configuration:
+//   - Quantity source: FDI tooth numbering (default), Arch (Upper/Lower
+//     checkboxes), or None (flat one-off item, quantity defaults to 1).
+//   - Pricing path: Sub-Types + their own scoped Warranties (default),
+//     Steps (Complete Denture style, each step optionally "per arch"), or
+//     Tiered (base price for the first unit + increment per additional
+//     unit, e.g. Removable Partial Denture).
+//   - Add-ons: optional checkbox extras with their own price, layered on
+//     top of whichever pricing path above is active - always available
+//     regardless of pricing path.
+function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
   const [newSubtype, setNewSubtype] = useState("");
   const [newTypeWarranty, setNewTypeWarranty] = useState("");
   const [newStepName, setNewStepName] = useState("");
   const [newStepPrice, setNewStepPrice] = useState("");
+  const [newStepPerArch, setNewStepPerArch] = useState(false);
+  const [newAddonName, setNewAddonName] = useState("");
+  const [newAddonPrice, setNewAddonPrice] = useState("");
+  const [tieredBase, setTieredBase] = useState(
+    serviceType.tieredBasePrice != null ? String(serviceType.tieredBasePrice) : ""
+  );
+  const [tieredIncrement, setTieredIncrement] = useState(
+    serviceType.tieredIncrementPrice != null ? String(serviceType.tieredIncrementPrice) : ""
+  );
+
+  const quantityMode = serviceType.usesArch ? "arch" : serviceType.usesFdiNumbering ? "fdi" : "none";
+  const pricingMode = serviceType.usesSteps ? "steps" : serviceType.usesTieredPricing ? "tiered" : "subtypes";
+
+  function setQuantityMode(mode) {
+    onUpdate({ usesArch: mode === "arch", usesFdiNumbering: mode === "fdi" });
+  }
+
+  function setPricingMode(mode) {
+    onUpdate({ usesSteps: mode === "steps", usesTieredPricing: mode === "tiered" });
+  }
+
+  async function saveTieredPrices() {
+    if (!tieredBase || !tieredIncrement) {
+      Alert.alert("Missing information", "Enter both a base price and an increment price.");
+      return;
+    }
+    onUpdate({ tieredBasePrice: Number(tieredBase), tieredIncrementPrice: Number(tieredIncrement) });
+  }
 
   async function addSubtype() {
     if (!newSubtype.trim()) return;
@@ -326,9 +365,11 @@ function ServiceTypeDetail({ serviceType, onChange, onToggleSteps }) {
         name: newStepName.trim(),
         price: Number(newStepPrice),
         serviceTypeId: serviceType.id,
+        perArch: newStepPerArch,
       });
       setNewStepName("");
       setNewStepPrice("");
+      setNewStepPerArch(false);
       onChange();
     } catch (err) {
       Alert.alert("Couldn't add step", "Please try again.");
@@ -353,22 +394,88 @@ function ServiceTypeDetail({ serviceType, onChange, onToggleSteps }) {
     ]);
   }
 
+  async function addAddon() {
+    if (!newAddonName.trim() || !newAddonPrice) return;
+    try {
+      await apiClient.post("/catalog/service-addons", {
+        name: newAddonName.trim(),
+        price: Number(newAddonPrice),
+        serviceTypeId: serviceType.id,
+      });
+      setNewAddonName("");
+      setNewAddonPrice("");
+      onChange();
+    } catch (err) {
+      Alert.alert("Couldn't add add-on", "Please try again.");
+    }
+  }
+
+  function deleteAddon(addon) {
+    Alert.alert("Delete Add-on", `Delete "${addon.name}"?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await apiClient.delete(`/catalog/service-addons/${addon.id}`);
+            onChange();
+          } catch (err) {
+            Alert.alert("Couldn't delete", err.response?.data?.error || "Please try again.");
+          }
+        },
+      },
+    ]);
+  }
+
   return (
     <View style={styles.typeDetail}>
-      <View style={styles.switchRow}>
-        <Text style={styles.switchLabel}>Uses step-based pricing (e.g. Complete Denture)</Text>
-        <Switch value={!!serviceType.usesSteps} onValueChange={onToggleSteps} />
+      <Text style={styles.detailSectionLabel}>Quantity Source</Text>
+      <View style={styles.pillRow}>
+        {[
+          { key: "fdi", label: "FDI Numbering" },
+          { key: "arch", label: "Arch (Upper/Lower)" },
+          { key: "none", label: "None (flat)" },
+        ].map((opt) => (
+          <TouchableOpacity
+            key={opt.key}
+            style={[styles.pill, quantityMode === opt.key && styles.pillActive]}
+            onPress={() => setQuantityMode(opt.key)}
+          >
+            <Text style={[styles.pillText, quantityMode === opt.key && styles.pillTextActive]}>{opt.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {serviceType.usesSteps ? (
-        <View>
+      <Text style={[styles.detailSectionLabel, { marginTop: spacing.md }]}>Pricing Path</Text>
+      <View style={styles.pillRow}>
+        {[
+          { key: "subtypes", label: "Sub-Types + Warranty" },
+          { key: "steps", label: "Steps" },
+          { key: "tiered", label: "Tiered" },
+        ].map((opt) => (
+          <TouchableOpacity
+            key={opt.key}
+            style={[styles.pill, pricingMode === opt.key && styles.pillActive]}
+            onPress={() => setPricingMode(opt.key)}
+          >
+            <Text style={[styles.pillText, pricingMode === opt.key && styles.pillTextActive]}>{opt.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {pricingMode === "steps" && (
+        <View style={{ marginTop: spacing.md }}>
           <Text style={styles.detailSectionLabel}>Steps</Text>
           {(serviceType.steps || []).length === 0 && (
             <Text style={styles.emptyTextSmall}>No steps yet - add one below.</Text>
           )}
           {(serviceType.steps || []).map((step) => (
             <View key={step.id} style={styles.detailRow}>
-              <Text style={styles.detailRowText}>{step.name}</Text>
+              <Text style={styles.detailRowText}>
+                {step.name}
+                {step.perArch ? " (per arch)" : ""}
+              </Text>
               <Text style={styles.detailRowPrice}>₹{Number(step.price).toFixed(2)}</Text>
               <TouchableOpacity onPress={() => deleteStep(step)}>
                 <Text style={styles.deleteTextSmall}>×</Text>
@@ -395,9 +502,54 @@ function ServiceTypeDetail({ serviceType, onChange, onToggleSteps }) {
               <Text style={styles.addButtonText}>Add</Text>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity style={styles.checkboxRow} onPress={() => setNewStepPerArch((v) => !v)}>
+            <Text style={styles.checkboxIcon}>{newStepPerArch ? "☑" : "☐"}</Text>
+            <Text style={styles.checkboxLabel}>
+              Per arch (doubles when both Upper and Lower are selected on the order)
+            </Text>
+          </TouchableOpacity>
         </View>
-      ) : (
-        <View>
+      )}
+
+      {pricingMode === "tiered" && (
+        <View style={{ marginTop: spacing.md }}>
+          <Text style={styles.detailSectionLabel}>Tiered Pricing</Text>
+          <Text style={styles.helperTextSmall}>
+            Base price covers the first unit; increment price is added for each additional unit (e.g. RPD: ₹350
+            for the first tooth, +₹50 per additional tooth).
+          </Text>
+          <View style={styles.addRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.smallFieldLabel}>Base Price</Text>
+              <TextInput
+                style={[styles.input, styles.inputSmall]}
+                value={tieredBase}
+                onChangeText={setTieredBase}
+                placeholder="e.g. 350"
+                keyboardType="decimal-pad"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.smallFieldLabel}>+ Per Additional Unit</Text>
+              <TextInput
+                style={[styles.input, styles.inputSmall]}
+                value={tieredIncrement}
+                onChangeText={setTieredIncrement}
+                placeholder="e.g. 50"
+                keyboardType="decimal-pad"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+          </View>
+          <TouchableOpacity style={styles.addButtonSmall} onPress={saveTieredPrices}>
+            <Text style={styles.addButtonText}>Save Tiered Prices</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {pricingMode === "subtypes" && (
+        <View style={{ marginTop: spacing.md }}>
           <Text style={styles.detailSectionLabel}>Sub-Types</Text>
           <View style={styles.chipWrap}>
             {(serviceType.subtypes || []).map((sub) => (
@@ -455,6 +607,42 @@ function ServiceTypeDetail({ serviceType, onChange, onToggleSteps }) {
           </View>
         </View>
       )}
+
+      <Text style={[styles.detailSectionLabel, { marginTop: spacing.lg }]}>
+        Add-ons (optional extras, e.g. "Gingival extension +₹200/crown")
+      </Text>
+      {(serviceType.addons || []).length === 0 && (
+        <Text style={styles.emptyTextSmall}>None yet - add one below.</Text>
+      )}
+      {(serviceType.addons || []).map((addon) => (
+        <View key={addon.id} style={styles.detailRow}>
+          <Text style={styles.detailRowText}>{addon.name}</Text>
+          <Text style={styles.detailRowPrice}>+₹{Number(addon.price).toFixed(2)}</Text>
+          <TouchableOpacity onPress={() => deleteAddon(addon)}>
+            <Text style={styles.deleteTextSmall}>×</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+      <View style={styles.addRow}>
+        <TextInput
+          style={[styles.input, styles.inputSmall, { flex: 1 }]}
+          value={newAddonName}
+          onChangeText={setNewAddonName}
+          placeholder="e.g. Gingival extension"
+          placeholderTextColor={colors.textMuted}
+        />
+        <TextInput
+          style={[styles.input, styles.inputSmall, { width: 90 }]}
+          value={newAddonPrice}
+          onChangeText={setNewAddonPrice}
+          placeholder="Price"
+          keyboardType="decimal-pad"
+          placeholderTextColor={colors.textMuted}
+        />
+        <TouchableOpacity style={styles.addButtonSmall} onPress={addAddon}>
+          <Text style={styles.addButtonText}>Add</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -972,6 +1160,11 @@ const styles = StyleSheet.create({
   typeDetail: { padding: spacing.sm, paddingTop: 0, borderTopWidth: 1, borderTopColor: colors.border },
   switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm },
   switchLabel: { fontSize: 12, color: colors.text, flex: 1, marginRight: spacing.sm },
+  checkboxRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.sm },
+  checkboxIcon: { fontSize: 16, color: colors.text },
+  checkboxLabel: { fontSize: 12, color: colors.textMuted, flex: 1 },
+  helperTextSmall: { fontSize: 11, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 15 },
+  smallFieldLabel: { fontSize: 11, fontWeight: "600", color: colors.text, marginBottom: 4 },
   detailSectionLabel: { fontSize: 12, fontWeight: "700", color: colors.text, marginBottom: spacing.xs },
   detailRow: {
     flexDirection: "row",
