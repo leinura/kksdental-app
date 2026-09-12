@@ -5,9 +5,6 @@ import apiClient from "../../api/client";
 import { colors, spacing, radius } from "../../theme/colors";
 import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
 
-// inside the component, alongside your existing useFocusEffect:
- // or whatever your load function is called
-
 export default function NotificationsScreen({ navigation }) {
   const [notifications, setNotifications] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -25,7 +22,7 @@ export default function NotificationsScreen({ navigation }) {
   useEffect(() => {
     load();
   }, [load]);
-  useRefreshOnForeground(loadOrder);
+  useRefreshOnForeground(load);
 
   async function handleRefresh() {
     setRefreshing(true);

@@ -18,9 +18,6 @@ import EventCarousel from "../../components/EventCarousel";
 import { colors, spacing, radius } from "../../theme/colors";
 import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
 
-// inside the component, alongside your existing useFocusEffect:
-// or whatever your load function is called
-
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SHOP_COLUMNS = 2;
 const SHOP_GAP = 10;
@@ -61,7 +58,7 @@ export default function ClientHomeScreen() {
       loadData();
     }, [loadData])
   );
-  useRefreshOnForeground(loadOrders); 
+  useRefreshOnForeground(loadData);
 
   async function handleRefresh() {
     setRefreshing(true);

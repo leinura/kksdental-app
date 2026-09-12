@@ -4,9 +4,6 @@ import apiClient from "../../api/client";
 import { colors, spacing, radius } from "../../theme/colors";
 import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
 
-// inside the component, alongside your existing useFocusEffect:
-useRefreshOnForeground(loadOrders); // or whatever your load function is called
-
 export default function ForLabScreen({ navigation }) {
   const [clinics, setClinics] = useState([]);
   const [orderCounts, setOrderCounts] = useState({});
@@ -35,6 +32,8 @@ export default function ForLabScreen({ navigation }) {
     setLoading(true);
     loadData().finally(() => setLoading(false));
   }, [loadData]);
+
+  useRefreshOnForeground(loadData);
 
   async function handleRefresh() {
     setRefreshing(true);
