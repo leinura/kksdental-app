@@ -6,9 +6,6 @@ import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
 import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
 
-// inside the component, alongside your existing useFocusEffect:
-useRefreshOnForeground(loadOrders); // or whatever your load function is called
-
 export default function YourOrderScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +31,8 @@ export default function YourOrderScreen({ navigation }) {
       loadOrders().finally(() => setLoading(false));
     }, [loadOrders])
   );
+
+  useRefreshOnForeground(loadOrders);
 
   async function handleRefresh() {
     setRefreshing(true);

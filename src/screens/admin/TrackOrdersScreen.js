@@ -5,9 +5,6 @@ import { STATUS_COLORS, STATUS_LABELS, PaymentTag } from "../../components/Statu
 import { colors, spacing, radius } from "../../theme/colors";
 import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
 
-// inside the component, alongside your existing useFocusEffect:
-useRefreshOnForeground(loadOrders); // or whatever your load function is called
-
 const DELIVERY_STAGES = ["PENDING", "IN_PROGRESS", "COMPLETED", "RETURN_REPEAT"];
 
 export default function TrackOrdersScreen() {
@@ -29,6 +26,8 @@ export default function TrackOrdersScreen() {
     setLoading(true);
     loadOrders().finally(() => setLoading(false));
   }, [loadOrders]);
+
+  useRefreshOnForeground(loadOrders);
 
   async function handleRefresh() {
     setRefreshing(true);
