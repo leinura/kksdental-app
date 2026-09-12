@@ -3,6 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, 
 import { Ionicons } from "@expo/vector-icons";
 import apiClient from "../../api/client";
 import { colors, spacing, radius } from "../../theme/colors";
+import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
+
+// inside the component, alongside your existing useFocusEffect:
+useRefreshOnForeground(loadOrders); // or whatever your load function is called
 
 export default function NotificationsScreen({ navigation }) {
   const [notifications, setNotifications] = useState(null);

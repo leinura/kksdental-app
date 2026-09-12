@@ -16,6 +16,10 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import apiClient from "../../api/client";
 import { StatusBadge, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
+import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
+
+// inside the component, alongside your existing useFocusEffect:
+useRefreshOnForeground(loadOrders); // or whatever your load function is called
 
 export default function OrderDetailScreen({ route }) {
   const { caseId } = route.params;

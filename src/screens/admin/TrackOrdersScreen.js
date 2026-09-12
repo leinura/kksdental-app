@@ -3,6 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, 
 import apiClient from "../../api/client";
 import { STATUS_COLORS, STATUS_LABELS, PaymentTag } from "../../components/StatusBadge";
 import { colors, spacing, radius } from "../../theme/colors";
+import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
+
+// inside the component, alongside your existing useFocusEffect:
+useRefreshOnForeground(loadOrders); // or whatever your load function is called
 
 const DELIVERY_STAGES = ["PENDING", "IN_PROGRESS", "COMPLETED", "RETURN_REPEAT"];
 

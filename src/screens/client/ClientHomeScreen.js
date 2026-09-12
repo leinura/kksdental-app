@@ -16,6 +16,10 @@ import apiClient from "../../api/client";
 import AdCarousel from "../../components/AdCarousel";
 import EventCarousel from "../../components/EventCarousel";
 import { colors, spacing, radius } from "../../theme/colors";
+import { useRefreshOnForeground } from "../../hooks/useRefreshOnForeground";
+
+// inside the component, alongside your existing useFocusEffect:
+useRefreshOnForeground(loadOrders); // or whatever your load function is called
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SHOP_COLUMNS = 2;
