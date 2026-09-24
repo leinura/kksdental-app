@@ -482,6 +482,12 @@ function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
               </TouchableOpacity>
             </View>
           ))}
+          <TouchableOpacity style={styles.checkboxRow} onPress={() => setNewStepPerArch((v) => !v)}>
+            <Text style={styles.checkboxIcon}>{newStepPerArch ? "☑" : "☐"}</Text>
+            <Text style={styles.checkboxLabel}>
+              Per arch (doubles when both Upper and Lower are selected on the order)
+            </Text>
+          </TouchableOpacity>
           <View style={styles.addRow}>
             <TextInput
               style={[styles.input, styles.inputSmall, { flex: 1 }]}
@@ -502,12 +508,6 @@ function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
               <Text style={styles.addButtonText}>Add</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.checkboxRow} onPress={() => setNewStepPerArch((v) => !v)}>
-            <Text style={styles.checkboxIcon}>{newStepPerArch ? "☑" : "☐"}</Text>
-            <Text style={styles.checkboxLabel}>
-              Per arch (doubles when both Upper and Lower are selected on the order)
-            </Text>
-          </TouchableOpacity>
         </View>
       )}
 

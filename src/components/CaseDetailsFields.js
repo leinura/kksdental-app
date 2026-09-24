@@ -286,6 +286,19 @@ export default function CaseDetailsFields({
         </Field>
       )}
 
+      {usesArch && (
+        <Field label="Arch *">
+          <TouchableOpacity style={styles.archRow} onPress={() => setArchUpper(!archUpper)}>
+            <Text style={styles.archCheckbox}>{archUpper ? "☑" : "☐"}</Text>
+            <Text style={styles.archLabel}>Upper Arch</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.archRow} onPress={() => setArchLower(!archLower)}>
+            <Text style={styles.archCheckbox}>{archLower ? "☑" : "☐"}</Text>
+            <Text style={styles.archLabel}>Lower Arch</Text>
+          </TouchableOpacity>
+        </Field>
+      )}
+
       {usesSteps && (
         <Field label="Steps *">
           {(selectedServiceType.steps || []).length === 0 ? (
@@ -310,19 +323,6 @@ export default function CaseDetailsFields({
               );
             })
           )}
-        </Field>
-      )}
-
-      {usesArch && (
-        <Field label="Arch *">
-          <TouchableOpacity style={styles.archRow} onPress={() => setArchUpper(!archUpper)}>
-            <Text style={styles.archCheckbox}>{archUpper ? "☑" : "☐"}</Text>
-            <Text style={styles.archLabel}>Upper Arch</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.archRow} onPress={() => setArchLower(!archLower)}>
-            <Text style={styles.archCheckbox}>{archLower ? "☑" : "☐"}</Text>
-            <Text style={styles.archLabel}>Lower Arch</Text>
-          </TouchableOpacity>
         </Field>
       )}
 
