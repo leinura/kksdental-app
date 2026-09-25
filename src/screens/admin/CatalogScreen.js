@@ -277,6 +277,9 @@ function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
   const [tieredIncrement, setTieredIncrement] = useState(
     serviceType.tieredIncrementPrice != null ? String(serviceType.tieredIncrementPrice) : ""
   );
+  const [tieredIncludedUnits, setTieredIncludedUnits] = useState(
+    serviceType.tieredIncludedUnits != null ? String(serviceType.tieredIncludedUnits) : "1"
+  );
 
   const quantityMode = serviceType.usesArch ? "arch" : serviceType.usesFdiNumbering ? "fdi" : "none";
   const pricingMode = serviceType.usesSteps ? "steps" : serviceType.usesTieredPricing ? "tiered" : "subtypes";
@@ -290,11 +293,15 @@ function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
   }
 
   async function saveTieredPrices() {
-    if (!tieredBase || !tieredIncrement) {
-      Alert.alert("Missing information", "Enter both a base price and an increment price.");
+    if (!tieredBase || !tieredIncrement || !tieredIncludedUnits) {
+      Alert.alert("Missing information", "Enter a base price, included units, and an increment price.");
       return;
     }
-    onUpdate({ tieredBasePrice: Number(tieredBase), tieredIncrementPrice: Number(tieredIncrement) });
+    onUpdate({
+      tieredBasePrice: Number(tieredBase),
+      tieredIncrementPrice: Number(tieredIncrement),
+      tieredIncludedUnits: Number(tieredIncludedUnits),
+    });
   }
 
   async function addSubtype() {
@@ -515,8 +522,10 @@ function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
         <View style={{ marginTop: spacing.md }}>
           <Text style={styles.detailSectionLabel}>Tiered Pricing</Text>
           <Text style={styles.helperTextSmall}>
-            Base price covers the first unit; increment price is added for each additional unit (e.g. RPD: ₹350
-            for the first tooth, +₹50 per additional tooth).
+            Base price flatly covers up to "Included Units" per arch; each unit beyond that adds the increment
+            price (e.g. RPD: base ₹350 covers 1 tooth, +₹50 per extra tooth. Flexible RPD: base ₹1600 covers up
+            to 3 teeth, +₹200 per extra tooth). If the Service Type also uses FDI numbering, this is applied
+            separately for the upper and lower arch.
           </Text>
           <View style={styles.addRow}>
             <View style={{ flex: 1 }}>
@@ -527,6 +536,17 @@ function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
                 onChangeText={setTieredBase}
                 placeholder="e.g. 350"
                 keyboardType="decimal-pad"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.smallFieldLabel}>Included Units</Text>
+              <TextInput
+                style={[styles.input, styles.inputSmall]}
+                value={tieredIncludedUnits}
+                onChangeText={setTieredIncludedUnits}
+                placeholder="e.g. 1"
+                keyboardType="number-pad"
                 placeholderTextColor={colors.textMuted}
               />
             </View>

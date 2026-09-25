@@ -198,6 +198,7 @@ export default function PatientRegistrationScreen() {
     if (selectedServiceType.tieredBasePrice != null && selectedServiceType.tieredIncrementPrice != null && quantity > 0) {
       const base = Number(selectedServiceType.tieredBasePrice);
       const increment = Number(selectedServiceType.tieredIncrementPrice);
+      const includedUnits = selectedServiceType.tieredIncludedUnits ?? 1;
       if (usesFdiNumbering && toothNumbers.length > 0) {
         // Base price applies once PER ARCH with any teeth selected, not
         // once per order overall - see priceLookup.js for the matching
@@ -205,10 +206,10 @@ export default function PatientRegistrationScreen() {
         const upperCount = toothNumbers.filter((t) => ["1", "2", "5", "6"].includes(t.charAt(0))).length;
         const lowerCount = toothNumbers.filter((t) => ["3", "4", "7", "8"].includes(t.charAt(0))).length;
         totalPrice = 0;
-        if (upperCount > 0) totalPrice += base + Math.max(0, upperCount - 1) * increment;
-        if (lowerCount > 0) totalPrice += base + Math.max(0, lowerCount - 1) * increment;
+        if (upperCount > 0) totalPrice += base + Math.max(0, upperCount - includedUnits) * increment;
+        if (lowerCount > 0) totalPrice += base + Math.max(0, lowerCount - includedUnits) * increment;
       } else {
-        totalPrice = base + Math.max(0, quantity - 1) * increment;
+        totalPrice = base + Math.max(0, quantity - includedUnits) * increment;
       }
     }
   } else if (hasSubtypes) {
