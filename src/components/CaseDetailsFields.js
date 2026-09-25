@@ -153,7 +153,18 @@ export default function CaseDetailsFields({
     if (selectedServiceType.tieredBasePrice != null && selectedServiceType.tieredIncrementPrice != null && quantity > 0) {
       const base = Number(selectedServiceType.tieredBasePrice);
       const increment = Number(selectedServiceType.tieredIncrementPrice);
-      totalPrice = base + Math.max(0, quantity - 1) * increment;
+      if (usesFdiNumbering && toothNumbers.length > 0) {
+        // Base price applies once PER ARCH with any teeth selected, not
+        // once per order overall - see priceLookup.js for the matching
+        // backend logic and the full explanation.
+        const upperCount = toothNumbers.filter((t) => ["1", "2", "5", "6"].includes(t.charAt(0))).length;
+        const lowerCount = toothNumbers.filter((t) => ["3", "4", "7", "8"].includes(t.charAt(0))).length;
+        totalPrice = 0;
+        if (upperCount > 0) totalPrice += base + Math.max(0, upperCount - 1) * increment;
+        if (lowerCount > 0) totalPrice += base + Math.max(0, lowerCount - 1) * increment;
+      } else {
+        totalPrice = base + Math.max(0, quantity - 1) * increment;
+      }
       unitPrice = totalPrice;
     }
   } else if (hasSubtypes) {
