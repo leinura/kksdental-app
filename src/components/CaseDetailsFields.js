@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, Acti
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import ToothChart from "./ToothChart";
+import ChildToothChart from "./ChildToothChart";
 import { Field, PillSelect } from "./FormControls";
 import { colors, spacing, radius } from "../theme/colors";
 
