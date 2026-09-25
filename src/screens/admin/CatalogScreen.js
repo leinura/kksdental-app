@@ -280,6 +280,7 @@ function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
   const [tieredIncludedUnits, setTieredIncludedUnits] = useState(
     serviceType.tieredIncludedUnits != null ? String(serviceType.tieredIncludedUnits) : "1"
   );
+  const [description, setDescription] = useState(serviceType.description || "");
 
   const quantityMode = serviceType.usesArch ? "arch" : serviceType.usesFdiNumbering ? "fdi" : "none";
   const pricingMode = serviceType.usesSteps ? "steps" : serviceType.usesTieredPricing ? "tiered" : "subtypes";
@@ -290,6 +291,10 @@ function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
 
   function setPricingMode(mode) {
     onUpdate({ usesSteps: mode === "steps", usesTieredPricing: mode === "tiered" });
+  }
+
+  function saveDescription() {
+    onUpdate({ description: description.trim() || null });
   }
 
   async function saveTieredPrices() {
@@ -437,7 +442,24 @@ function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
 
   return (
     <View style={styles.typeDetail}>
-      <Text style={styles.detailSectionLabel}>Quantity Source</Text>
+      <Text style={styles.detailSectionLabel}>Description (optional, shown to clients)</Text>
+      <Text style={styles.helperTextSmall}>
+        A short note clients see while placing this order - e.g. "Covers up to 3 teeth per arch."
+      </Text>
+      <View style={styles.addRow}>
+        <TextInput
+          style={[styles.input, styles.inputSmall, { flex: 1 }]}
+          value={description}
+          onChangeText={setDescription}
+          placeholder="e.g. Covers up to 3 teeth per arch"
+          placeholderTextColor={colors.textMuted}
+        />
+        <TouchableOpacity style={styles.addButtonSmall} onPress={saveDescription}>
+          <Text style={styles.addButtonText}>Save</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={[styles.detailSectionLabel, { marginTop: spacing.md }]}>Quantity Source</Text>
       <View style={styles.pillRow}>
         {[
           { key: "fdi", label: "FDI Numbering" },

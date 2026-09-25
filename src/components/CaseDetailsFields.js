@@ -268,6 +268,12 @@ export default function CaseDetailsFields({
         </Field>
       )}
 
+      {selectedServiceType?.description ? (
+        <View style={styles.noteBox}>
+          <Text style={styles.noteText}>ℹ️ {selectedServiceType.description}</Text>
+        </View>
+      ) : null}
+
       {hasSubtypes && (
         <Field label="Sub-Type *">
           <PillSelect
@@ -500,6 +506,14 @@ const styles = StyleSheet.create({
   },
   addPhotoText: { fontSize: 28, color: colors.textMuted, fontWeight: "300" },
   emptyStepsText: { fontSize: 13, color: colors.textMuted, fontStyle: "italic" },
+  noteBox: {
+    backgroundColor: colors.lavenderSoft,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    marginBottom: spacing.md,
+  },
+  noteText: { fontSize: 12, color: colors.text, lineHeight: 17 },
   stepRow: {
     flexDirection: "row",
     alignItems: "center",
