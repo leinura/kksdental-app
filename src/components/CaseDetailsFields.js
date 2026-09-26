@@ -73,6 +73,14 @@ export default function CaseDetailsFields({
 
   const usesArch = !!selectedServiceType?.usesArch;
   const usesFdiNumbering = !usesArch && !!selectedServiceType?.usesFdiNumbering;
+  const allowsChildrenTeeth = usesFdiNumbering && !!selectedServiceType?.allowsChildrenTeeth;
+  // Which tooth chart(s) show - only relevant when allowsChildrenTeeth is
+  // true. Both can be on at once for mixed dentition (a child with some
+  // baby teeth and some permanent teeth erupting simultaneously); a
+  // Service Type that doesn't allow children's teeth just always shows
+  // the adult chart, same as before this feature existed.
+  const [showAdultChart, setShowAdultChart] = useState(true);
+  const [showChildChart, setShowChildChart] = useState(false);
 
   // Quantity source
   let quantity;
@@ -116,6 +124,8 @@ export default function CaseDetailsFields({
     setAddonIds([]);
     setArchUpper(false);
     setArchLower(false);
+    setShowAdultChart(true);
+    setShowChildChart(false);
   }, [serviceTypeId]);
 
   // Also clear the warranty choice whenever the Sub-Type changes - each
@@ -353,7 +363,25 @@ export default function CaseDetailsFields({
         />
       </Field>
 
-      {usesFdiNumbering && <ToothChart selected={toothNumbers} onChange={setToothNumbers} />}
+      {allowsChildrenTeeth && (
+        <Field label="Patient Type">
+          <TouchableOpacity style={styles.archRow} onPress={() => setShowAdultChart((v) => !v)}>
+            <Text style={styles.archCheckbox}>{showAdultChart ? "☑" : "☐"}</Text>
+            <Text style={styles.archLabel}>Adult (Permanent Teeth)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.archRow} onPress={() => setShowChildChart((v) => !v)}>
+            <Text style={styles.archCheckbox}>{showChildChart ? "☑" : "☐"}</Text>
+            <Text style={styles.archLabel}>Children (Primary Teeth)</Text>
+          </TouchableOpacity>
+        </Field>
+      )}
+
+      {usesFdiNumbering && (!allowsChildrenTeeth || showAdultChart) && (
+        <ToothChart selected={toothNumbers} onChange={setToothNumbers} />
+      )}
+      {usesFdiNumbering && allowsChildrenTeeth && showChildChart && (
+        <ChildToothChart selected={toothNumbers} onChange={setToothNumbers} />
+      )}
 
       {!usesArch && (
         <Field label="Quantity">

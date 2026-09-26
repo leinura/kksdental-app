@@ -476,6 +476,19 @@ function ServiceTypeDetail({ serviceType, onChange, onUpdate }) {
         ))}
       </View>
 
+      {quantityMode === "fdi" && (
+        <TouchableOpacity
+          style={styles.checkboxRow}
+          onPress={() => onUpdate({ allowsChildrenTeeth: !serviceType.allowsChildrenTeeth })}
+        >
+          <Text style={styles.checkboxIcon}>{serviceType.allowsChildrenTeeth ? "☑" : "☐"}</Text>
+          <Text style={styles.checkboxLabel}>
+            Allow children's (primary) teeth - shows an Adult/Children choice on the order form, with a separate
+            tooth chart for primary teeth
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <Text style={[styles.detailSectionLabel, { marginTop: spacing.md }]}>Pricing Path</Text>
       <View style={styles.pillRow}>
         {[
