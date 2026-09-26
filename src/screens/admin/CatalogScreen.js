@@ -37,7 +37,10 @@ export default function CatalogScreen() {
       setToothShades(t.data);
       setPriceList(p.data);
     } catch (err) {
-      Alert.alert("Couldn't load catalog", "Check your connection and try again.");
+      Alert.alert(
+        "DEBUG - Couldn't load catalog",
+        `url: ${err.config?.url}\nmessage: ${err.message}\nstatus: ${err.response?.status}\ndata: ${JSON.stringify(err.response?.data)}`
+      );
     }
   }, []);
 
