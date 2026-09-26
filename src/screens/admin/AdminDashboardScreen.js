@@ -91,6 +91,7 @@ export default function AdminDashboardScreen() {
   const totalRevenue = cases.reduce((sum, c) => sum + Number(c.totalPrice), 0);
   const paidAmount = cases.filter((c) => c.paymentStatus === "PAID").reduce((sum, c) => sum + Number(c.totalPrice), 0);
   const unpaidAmount = totalRevenue - paidAmount;
+  const unpricedCount = cases.filter((c) => c.totalPrice == null).length;
 
   const statusCounts = { PENDING: 0, IN_PROGRESS: 0, COMPLETED: 0 };
   cases.forEach((c) => {
@@ -104,6 +105,15 @@ export default function AdminDashboardScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
     >
       <Text style={styles.pageHeading}>Dashboard</Text>
+
+      {unpricedCount > 0 && (
+        <View style={styles.unpricedBanner}>
+          <Text style={styles.unpricedBannerText}>
+            {unpricedCount} order{unpricedCount === 1 ? "" : "s"} awaiting a price - open the order and set it
+            once you've discussed it with the clinic.
+          </Text>
+        </View>
+      )}
 
       {/* Weekly growth - stacked by service */}
       <View style={styles.card}>
@@ -191,6 +201,15 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xl },
   loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
   pageHeading: { fontSize: 22, fontWeight: "700", color: colors.text, marginBottom: spacing.md },
+  unpricedBanner: {
+    backgroundColor: "#FEF3E2",
+    borderRadius: radius.card,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: "#F5C77E",
+  },
+  unpricedBannerText: { fontSize: 13, color: colors.text, lineHeight: 19, fontWeight: "600" },
   card: {
     backgroundColor: colors.white,
     borderRadius: radius.card,

@@ -3,6 +3,7 @@ import {
   View,
   Text,
   Image,
+  TextInput,
   TouchableOpacity,
   Modal,
   Alert,
@@ -23,6 +24,8 @@ export default function OrderDetailScreen({ route }) {
   const [order, setOrder] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(null); // null = closed, else index into order.photos
+  const [settingPrice, setSettingPrice] = useState(false);
+  const [priceInput, setPriceInput] = useState("");
 
   const loadOrder = useCallback(async () => {
     try {
@@ -43,6 +46,22 @@ export default function OrderDetailScreen({ route }) {
     setRefreshing(true);
     await loadOrder();
     setRefreshing(false);
+  }
+
+  async function savePrice() {
+    const value = Number(priceInput);
+    if (!priceInput || Number.isNaN(value) || value < 0) {
+      Alert.alert("Invalid price", "Enter a valid amount.");
+      return;
+    }
+    try {
+      const res = await apiClient.patch(`/cases/${caseId}/price`, { unitPrice: value, totalPrice: value });
+      setOrder((prev) => ({ ...prev, unitPrice: res.data.unitPrice, totalPrice: res.data.totalPrice }));
+      setSettingPrice(false);
+      setPriceInput("");
+    } catch (err) {
+      Alert.alert("Couldn't save price", err.response?.data?.error || "Please try again.");
+    }
   }
 
   async function markPickedUp() {
@@ -115,29 +134,38 @@ export default function OrderDetailScreen({ route }) {
         </Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Service Details</Text>
-        <DetailRow label="Service" value={order.service?.name} />
-        <DetailRow label="Service Type" value={order.serviceType?.name} />
-        {order.serviceSubtype ? (
-          <>
-            <DetailRow label="Sub-Type" value={order.serviceSubtype.name} />
-            <DetailRow label="Warranty" value={order.serviceTypeWarranty?.label || "No warranty"} />
-          </>
-        ) : order.caseSteps?.length > 0 ? null : (
-          <DetailRow label="Warranty" value={order.warranty?.label || "No warranty"} />
-        )}
-        <DetailRow label="Tooth Shade" value={order.toothShade?.code || "-"} />
-        {order.archUpper || order.archLower ? (
-          <DetailRow
-            label="Arch"
-            value={[order.archUpper && "Upper", order.archLower && "Lower"].filter(Boolean).join(" + ")}
-          />
-        ) : order.toothNumbers?.length > 0 ? (
-          <DetailRow label="Tooth Number(s)" value={order.toothNumbers.join(", ")} />
-        ) : null}
-        <DetailRow label="Quantity" value={String(order.quantity)} />
-      </View>
+      {order.customRequestNote && (
+        <View style={styles.customCard}>
+          <Text style={styles.sectionLabel}>Custom Request (not from catalog)</Text>
+          <Text style={styles.commentText}>{order.customRequestNote}</Text>
+        </View>
+      )}
+
+      {order.service && (
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Service Details</Text>
+          <DetailRow label="Service" value={order.service?.name} />
+          <DetailRow label="Service Type" value={order.serviceType?.name} />
+          {order.serviceSubtype ? (
+            <>
+              <DetailRow label="Sub-Type" value={order.serviceSubtype.name} />
+              <DetailRow label="Warranty" value={order.serviceTypeWarranty?.label || "No warranty"} />
+            </>
+          ) : order.caseSteps?.length > 0 ? null : (
+            <DetailRow label="Warranty" value={order.warranty?.label || "No warranty"} />
+          )}
+          <DetailRow label="Tooth Shade" value={order.toothShade?.code || "-"} />
+          {order.archUpper || order.archLower ? (
+            <DetailRow
+              label="Arch"
+              value={[order.archUpper && "Upper", order.archLower && "Lower"].filter(Boolean).join(" + ")}
+            />
+          ) : order.toothNumbers?.length > 0 ? (
+            <DetailRow label="Tooth Number(s)" value={order.toothNumbers.join(", ")} />
+          ) : null}
+          <DetailRow label="Quantity" value={String(order.quantity)} />
+        </View>
+      )}
 
       {order.caseSteps?.length > 0 && (
         <View style={styles.card}>
@@ -159,8 +187,40 @@ export default function OrderDetailScreen({ route }) {
 
       <View style={styles.card}>
         <Text style={styles.sectionLabel}>Price</Text>
-        <DetailRow label="Unit Price" value={`₹${Number(order.unitPrice).toFixed(2)}`} />
-        <DetailRow label="Total" value={`₹${Number(order.totalPrice).toFixed(2)}`} bold />
+        {order.totalPrice != null ? (
+          <>
+            <DetailRow label="Unit Price" value={`₹${Number(order.unitPrice).toFixed(2)}`} />
+            <DetailRow label="Total" value={`₹${Number(order.totalPrice).toFixed(2)}`} bold />
+          </>
+        ) : settingPrice ? (
+          <View>
+            <Text style={styles.notPricedText}>Enter the price agreed with the clinic:</Text>
+            <View style={styles.priceInputRow}>
+              <TextInput
+                style={styles.priceInput}
+                value={priceInput}
+                onChangeText={setPriceInput}
+                placeholder="e.g. 1200"
+                keyboardType="decimal-pad"
+                placeholderTextColor={colors.textMuted}
+                autoFocus
+              />
+              <TouchableOpacity style={styles.savePriceButton} onPress={savePrice}>
+                <Text style={styles.savePriceButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={() => setSettingPrice(false)}>
+              <Text style={styles.cancelPriceText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View>
+            <Text style={styles.notPricedText}>Not yet priced - discuss with the clinic, then set the price.</Text>
+            <TouchableOpacity style={styles.setPriceButton} onPress={() => setSettingPrice(true)}>
+              <Text style={styles.setPriceButtonText}>Set Price</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {order.photos?.length > 0 && (
@@ -329,6 +389,43 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  customCard: {
+    backgroundColor: colors.lavenderSoft,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  notPricedText: { fontSize: 13, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 18 },
+  setPriceButton: {
+    backgroundColor: colors.dark,
+    borderRadius: radius.pill,
+    paddingVertical: 10,
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: spacing.lg,
+  },
+  setPriceButtonText: { color: colors.white, fontWeight: "700", fontSize: 13 },
+  priceInputRow: { flexDirection: "row", gap: spacing.sm, alignItems: "center" },
+  priceInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.text,
+  },
+  savePriceButton: {
+    backgroundColor: colors.dark,
+    borderRadius: radius.pill,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
+  },
+  savePriceButtonText: { color: colors.white, fontWeight: "700", fontSize: 13 },
+  cancelPriceText: { color: colors.textMuted, fontSize: 13, marginTop: spacing.sm, fontWeight: "600" },
   viewerOverlay: { flex: 1, backgroundColor: "rgba(10,10,10,0.95)", alignItems: "center", justifyContent: "center" },
   viewerClose: { position: "absolute", top: 50, right: spacing.lg, zIndex: 1, padding: spacing.sm },
   viewerCloseText: { color: colors.white, fontSize: 32, fontWeight: "300", lineHeight: 34 },

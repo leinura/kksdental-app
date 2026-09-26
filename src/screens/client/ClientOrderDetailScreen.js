@@ -44,6 +44,7 @@ export default function ClientOrderDetailScreen({ route }) {
   const [archLower, setArchLower] = useState(false);
   const [photos, setPhotos] = useState([]);
   const [comment, setComment] = useState("");
+  const [customRequestNote, setCustomRequestNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [upiModalVisible, setUpiModalVisible] = useState(false);
   const [upiAmount, setUpiAmount] = useState(0);
@@ -83,12 +84,13 @@ export default function ClientOrderDetailScreen({ route }) {
     setArchLower(false);
     setPhotos([]);
     setComment("");
+    setCustomRequestNote("");
     setShowNewOrderForm(false);
   }
 
   async function submitOrder() {
-    if (!serviceId || !serviceTypeId) {
-      Alert.alert("Missing information", "Select a Service and Service Type first.");
+    if ((!serviceId || !serviceTypeId) && !customRequestNote.trim()) {
+      Alert.alert("Missing information", "Select a Service and Service Type, or describe the request.");
       return null;
     }
     setSubmitting(true);
@@ -109,6 +111,7 @@ export default function ClientOrderDetailScreen({ route }) {
         archLower,
         photos: photos.map((p) => `data:image/jpeg;base64,${p.base64}`),
         comment: comment.trim() || undefined,
+        customRequestNote: customRequestNote.trim() || undefined,
       });
       resetNewOrderFields();
       return res.data;
@@ -203,25 +206,38 @@ export default function ClientOrderDetailScreen({ route }) {
           </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Service Details</Text>
-          <DetailRow label="Service" value={order.service?.name} />
-          <DetailRow label="Service Type" value={order.serviceType?.name} />
-          {order.serviceSubtype ? (
-            <>
-              <DetailRow label="Sub-Type" value={order.serviceSubtype.name} />
-              <DetailRow label="Warranty" value={order.serviceTypeWarranty?.label || "No warranty"} />
-            </>
-          ) : order.caseSteps?.length > 0 ? null : (
-            <DetailRow label="Warranty" value={order.warranty?.label || "No warranty"} />
-          )}
-          <DetailRow label="Tooth Shade" value={order.toothShade?.code || "-"} />
-          <DetailRow
-            label="Tooth Number(s)"
-            value={order.toothNumbers?.length > 0 ? order.toothNumbers.join(", ") : "-"}
-          />
-          <DetailRow label="Quantity" value={String(order.quantity)} />
-        </View>
+        {order.customRequestNote && (
+          <View style={styles.customCard}>
+            <Text style={styles.sectionLabel}>Custom Request (not from catalog)</Text>
+            <Text style={styles.commentText}>{order.customRequestNote}</Text>
+          </View>
+        )}
+
+        {order.service && (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Service Details</Text>
+            <DetailRow label="Service" value={order.service?.name} />
+            <DetailRow label="Service Type" value={order.serviceType?.name} />
+            {order.serviceSubtype ? (
+              <>
+                <DetailRow label="Sub-Type" value={order.serviceSubtype.name} />
+                <DetailRow label="Warranty" value={order.serviceTypeWarranty?.label || "No warranty"} />
+              </>
+            ) : order.caseSteps?.length > 0 ? null : (
+              <DetailRow label="Warranty" value={order.warranty?.label || "No warranty"} />
+            )}
+            <DetailRow label="Tooth Shade" value={order.toothShade?.code || "-"} />
+            {order.archUpper || order.archLower ? (
+              <DetailRow
+                label="Arch"
+                value={[order.archUpper && "Upper", order.archLower && "Lower"].filter(Boolean).join(" + ")}
+              />
+            ) : order.toothNumbers?.length > 0 ? (
+              <DetailRow label="Tooth Number(s)" value={order.toothNumbers.join(", ")} />
+            ) : null}
+            <DetailRow label="Quantity" value={String(order.quantity)} />
+          </View>
+        )}
 
         {order.caseSteps?.length > 0 && (
           <View style={styles.card}>
@@ -234,8 +250,16 @@ export default function ClientOrderDetailScreen({ route }) {
 
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Price</Text>
-          <DetailRow label="Unit Price" value={`₹${Number(order.unitPrice).toFixed(2)}`} />
-          <DetailRow label="Total" value={`₹${Number(order.totalPrice).toFixed(2)}`} bold />
+          {order.totalPrice != null ? (
+            <>
+              <DetailRow label="Unit Price" value={`₹${Number(order.unitPrice).toFixed(2)}`} />
+              <DetailRow label="Total" value={`₹${Number(order.totalPrice).toFixed(2)}`} bold />
+            </>
+          ) : (
+            <Text style={styles.notPricedText}>
+              Not yet priced - the lab will confirm this with you by phone.
+            </Text>
+          )}
         </View>
 
         {order.photos?.length > 0 && (
@@ -304,6 +328,8 @@ export default function ClientOrderDetailScreen({ route }) {
               setPhotos={setPhotos}
               comment={comment}
               setComment={setComment}
+              customRequestNote={customRequestNote}
+              setCustomRequestNote={setCustomRequestNote}
             />
 
             <View style={styles.buttonRow}>
@@ -374,6 +400,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  customCard: {
+    backgroundColor: colors.lavenderSoft,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  notPricedText: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
   sectionLabel: { fontSize: 12, fontWeight: "700", color: colors.textMuted, marginBottom: spacing.sm, textTransform: "uppercase" },
   value: { fontSize: 15, fontWeight: "700", color: colors.text },
   subValue: { fontSize: 13, color: colors.textMuted, marginTop: 2 },

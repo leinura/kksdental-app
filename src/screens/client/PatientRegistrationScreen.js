@@ -39,6 +39,7 @@ export default function PatientRegistrationScreen() {
   const [archLower, setArchLower] = useState(false);
   const [photos, setPhotos] = useState([]); // [{ uri, base64 }]
   const [comment, setComment] = useState("");
+  const [customRequestNote, setCustomRequestNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // "form" -> filling everything in
@@ -73,13 +74,18 @@ export default function PatientRegistrationScreen() {
     setArchLower(false);
     setPhotos([]);
     setComment("");
+    setCustomRequestNote("");
     setJustRegistered(null);
     setStep("form");
   }
 
   function handleReview() {
-    if (!fullName || !gender || !age || !serviceId || !serviceTypeId) {
+    if (!fullName || !gender || !age) {
       Alert.alert("Missing information", "Please fill in all required fields.");
+      return;
+    }
+    if ((!serviceId || !serviceTypeId) && !customRequestNote.trim()) {
+      Alert.alert("Missing information", "Select a Service and Service Type, or describe the request.");
       return;
     }
     setStep("review");
@@ -108,6 +114,7 @@ export default function PatientRegistrationScreen() {
         archLower,
         photos: photos.map((p) => `data:image/jpeg;base64,${p.base64}`),
         comment: comment.trim() || undefined,
+        customRequestNote: customRequestNote.trim() || undefined,
       });
       return res.data;
     } catch (err) {
@@ -239,43 +246,59 @@ export default function PatientRegistrationScreen() {
             <SummaryRow label="Patient Name" value={fullName} />
             <SummaryRow label="Gender" value={gender} />
             <SummaryRow label="Age" value={age} />
-            <SummaryRow label="Service" value={selectedService?.name} />
-            <SummaryRow label="Service Type" value={selectedServiceType?.name} />
 
-            {usesSteps ? (
-              <SummaryRow
-                label="Steps"
-                value={selectedSteps.length > 0 ? selectedSteps.map((s) => s.name).join(", ") : "-"}
-              />
-            ) : usesTieredPricing ? null : hasSubtypes ? (
+            {customRequestNote.trim() && (
+              <SummaryRow label="Custom Request" value={customRequestNote.trim()} />
+            )}
+
+            {selectedService && (
               <>
-                <SummaryRow label="Sub-Type" value={selectedSubtype?.name || "-"} />
-                <SummaryRow label="Warranty" value={selectedTypeWarranty?.label || "No warranty"} />
+                <SummaryRow label="Service" value={selectedService?.name} />
+                <SummaryRow label="Service Type" value={selectedServiceType?.name} />
+
+                {usesSteps ? (
+                  <SummaryRow
+                    label="Steps"
+                    value={selectedSteps.length > 0 ? selectedSteps.map((s) => s.name).join(", ") : "-"}
+                  />
+                ) : usesTieredPricing ? null : hasSubtypes ? (
+                  <>
+                    <SummaryRow label="Sub-Type" value={selectedSubtype?.name || "-"} />
+                    <SummaryRow label="Warranty" value={selectedTypeWarranty?.label || "No warranty"} />
+                  </>
+                ) : (
+                  <SummaryRow label="Warranty" value={selectedWarranty?.label || "No warranty"} />
+                )}
+
+                {selectedAddons.length > 0 && (
+                  <SummaryRow label="Add-ons" value={selectedAddons.map((a) => a.name).join(", ")} />
+                )}
+
+                <SummaryRow label="Tooth Shade" value={selectedShade?.code || "-"} />
+                {usesArch ? (
+                  <SummaryRow
+                    label="Arch"
+                    value={
+                      [archUpper && "Upper", archLower && "Lower"].filter(Boolean).join(" + ") || "-"
+                    }
+                  />
+                ) : usesFdiNumbering ? (
+                  <SummaryRow label="Tooth Number(s)" value={toothNumbers.length > 0 ? toothNumbers.join(", ") : "-"} />
+                ) : null}
+                <SummaryRow label="Quantity" value={String(quantity)} />
               </>
-            ) : (
-              <SummaryRow label="Warranty" value={selectedWarranty?.label || "No warranty"} />
             )}
 
-            {selectedAddons.length > 0 && (
-              <SummaryRow label="Add-ons" value={selectedAddons.map((a) => a.name).join(", ")} />
-            )}
-
-            <SummaryRow label="Tooth Shade" value={selectedShade?.code || "-"} />
-            {usesArch ? (
-              <SummaryRow
-                label="Arch"
-                value={
-                  [archUpper && "Upper", archLower && "Lower"].filter(Boolean).join(" + ") || "-"
-                }
-              />
-            ) : usesFdiNumbering ? (
-              <SummaryRow label="Tooth Number(s)" value={toothNumbers.length > 0 ? toothNumbers.join(", ") : "-"} />
-            ) : null}
-            <SummaryRow label="Quantity" value={String(quantity)} />
             <SummaryRow label="Comment" value={comment.trim() || "-"} />
             <SummaryRow
               label="Price"
-              value={totalPrice != null ? `₹${totalPrice.toFixed(2)}` : "-"}
+              value={
+                totalPrice != null
+                  ? `₹${totalPrice.toFixed(2)}`
+                  : customRequestNote.trim()
+                  ? "To be confirmed by phone"
+                  : "-"
+              }
               bold
             />
           </View>
@@ -409,6 +432,8 @@ export default function PatientRegistrationScreen() {
         setPhotos={setPhotos}
         comment={comment}
         setComment={setComment}
+        customRequestNote={customRequestNote}
+        setCustomRequestNote={setCustomRequestNote}
       />
 
       <TouchableOpacity style={styles.submitButton} onPress={handleReview}>
