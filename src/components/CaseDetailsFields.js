@@ -65,6 +65,8 @@ export default function CaseDetailsFields({
   setPhotos,
   comment,
   setComment,
+  customRequestNote,
+  setCustomRequestNote,
 }) {
   const selectedService = services.find((s) => s.id === serviceId);
   const serviceTypes = selectedService ? selectedService.serviceTypes : [];
@@ -258,7 +260,18 @@ export default function CaseDetailsFields({
 
   return (
     <View>
-      <Field label="Services *">
+      <Field label="Need something not listed below? (optional)">
+        <TextInput
+          style={[styles.input, styles.commentInput]}
+          value={customRequestNote}
+          onChangeText={setCustomRequestNote}
+          placeholder="Describe what you need - we'll call you to discuss pricing and details."
+          placeholderTextColor={colors.textMuted}
+          multiline
+        />
+      </Field>
+
+      <Field label="Services">
         <PillSelect
           options={services.map((s) => ({ label: s.name, value: s.id }))}
           value={serviceId}
@@ -270,7 +283,7 @@ export default function CaseDetailsFields({
       </Field>
 
       {selectedService && (
-        <Field label="Service Type *">
+        <Field label="Service Type">
           <PillSelect
             options={serviceTypes.map((t) => ({ label: t.name, value: t.id }))}
             value={serviceTypeId}
@@ -428,7 +441,11 @@ export default function CaseDetailsFields({
       <Field label="Price">
         <View style={styles.priceBox}>
           <Text style={styles.priceText}>
-            {totalPrice != null ? `₹${totalPrice.toFixed(2)}` : "Select the options above to see price"}
+            {totalPrice != null
+              ? `₹${totalPrice.toFixed(2)}`
+              : customRequestNote?.trim() && !serviceTypeId
+              ? "Price to be confirmed by phone"
+              : "Select the options above to see price"}
           </Text>
         </View>
       </Field>
