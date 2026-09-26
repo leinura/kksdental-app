@@ -287,7 +287,7 @@ export default function CaseDetailsFields({
       </TouchableOpacity>
 
       {isCustomRequest ? (
-        <Field label="Describe what you need">
+        <Field label="Describe what you need (On Demand Services)">
           <TextInput
             style={[styles.input, styles.commentInput]}
             value={customRequestNote}
