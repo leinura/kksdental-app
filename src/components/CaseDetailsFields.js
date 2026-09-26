@@ -258,19 +258,48 @@ export default function CaseDetailsFields({
     }
   }
 
+  const [isCustomRequest, setIsCustomRequest] = useState(false);
+
+  function toggleCustomRequest() {
+    const next = !isCustomRequest;
+    setIsCustomRequest(next);
+    if (next) {
+      // Switching TO a custom/phone request - clear any catalog picks so
+      // nothing stale gets silently submitted alongside the note.
+      setServiceId(null);
+      setServiceTypeId(null);
+      setToothShadeId(null);
+      setToothNumbers([]);
+      setQuantityOverride(null);
+    } else {
+      // Switching BACK to the normal catalog flow - clear the note.
+      setCustomRequestNote("");
+    }
+  }
+
   return (
     <View>
-      <Field label="Need something not listed below? (optional)">
-        <TextInput
-          style={[styles.input, styles.commentInput]}
-          value={customRequestNote}
-          onChangeText={setCustomRequestNote}
-          placeholder="Describe what you need - we'll call you to discuss pricing and details."
-          placeholderTextColor={colors.textMuted}
-          multiline
-        />
-      </Field>
+      <TouchableOpacity style={styles.toggleRow} onPress={toggleCustomRequest}>
+        <Text style={styles.toggleCheckbox}>{isCustomRequest ? "☑" : "☐"}</Text>
+        <Text style={styles.toggleLabel}>
+          This isn't one of our listed services - I'll describe what I need and you can call me
+        </Text>
+      </TouchableOpacity>
 
+      {isCustomRequest ? (
+        <Field label="Describe what you need">
+          <TextInput
+            style={[styles.input, styles.commentInput]}
+            value={customRequestNote}
+            onChangeText={setCustomRequestNote}
+            placeholder="Describe what you need - we'll call you to discuss pricing and details."
+            placeholderTextColor={colors.textMuted}
+            multiline
+          />
+          <Text style={styles.helperNote}>No price shown here - we'll confirm pricing with you by phone.</Text>
+        </Field>
+      ) : (
+        <>
       <Field label="Services">
         <PillSelect
           options={services.map((s) => ({ label: s.name, value: s.id }))}
@@ -441,14 +470,13 @@ export default function CaseDetailsFields({
       <Field label="Price">
         <View style={styles.priceBox}>
           <Text style={styles.priceText}>
-            {totalPrice != null
-              ? `₹${totalPrice.toFixed(2)}`
-              : customRequestNote?.trim() && !serviceTypeId
-              ? "Price to be confirmed by phone"
-              : "Select the options above to see price"}
+            {totalPrice != null ? `₹${totalPrice.toFixed(2)}` : "Select the options above to see price"}
           </Text>
         </View>
       </Field>
+
+        </>
+      )}
 
       <Field label="Patient Photos (optional)">
         <View style={styles.photoRow}>
@@ -560,6 +588,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   noteText: { fontSize: 12, color: colors.text, lineHeight: 17 },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    marginBottom: spacing.md,
+    backgroundColor: colors.offWhite,
+  },
+  toggleCheckbox: { fontSize: 18, color: colors.text },
+  toggleLabel: { flex: 1, fontSize: 13, color: colors.text, fontWeight: "600" },
+  helperNote: { fontSize: 11, color: colors.textMuted, marginTop: 6, fontStyle: "italic" },
   stepRow: {
     flexDirection: "row",
     alignItems: "center",
